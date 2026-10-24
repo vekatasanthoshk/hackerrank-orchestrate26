@@ -1,0 +1,63 @@
+{
+  "name": "custom_04_ignore_late_evidence",
+  "rationale": "audit_at = 2026-09-20. evidence_01 (captured 2026-09-15) shows account_5762 404 for haruka.s1838@zoho.com; the admin-console screenshot evidence_04 (captured 2026-09-26, AFTER audit_at) shows the account live. The later screenshot must not create a finding: the account only gets a verification check. The support attachment support_9538 still matches user_11's historical phone +81 90 6156 0005 in evidence_01, so the case is still INCOMPLETE on that record.",
+  "request": {
+    "case_id": "custom_04_ignore_late_evidence",
+    "email": "haruka.s1838@zoho.com",
+    "requested_at": "2026-09-12T08:00:00Z",
+    "reported_status": "COMPLETE",
+    "reported_at": "2026-09-14T08:00:00Z",
+    "audit_at": "2026-09-20T12:00:00Z",
+    "request_text": "Please erase my account and personal data."
+  },
+  "expected": {
+    "deletion_status": "INCOMPLETE",
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "FINDING",
+        "system_id": "support_platform",
+        "resource_id": "support_9538",
+        "operation": "REPORT_REMAINING_RECORD",
+        "state": "PRESENT",
+        "evidence_id": "evidence_01"
+      },
+      {
+        "step_no": 2,
+        "phase": "REMEDIATION",
+        "system_id": "support_platform",
+        "resource_id": "support_9538",
+        "operation": "DELETE_RECORD",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 3,
+        "phase": "VERIFICATION",
+        "system_id": "account_service",
+        "resource_id": "account_5762",
+        "operation": "VERIFY_RECORD_ABSENT",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 4,
+        "phase": "VERIFICATION",
+        "system_id": "support_platform",
+        "resource_id": "support_9538",
+        "operation": "VERIFY_RECORD_ABSENT",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 5,
+        "phase": "VERIFICATION",
+        "system_id": "security_service",
+        "resource_id": "audit_record_3753",
+        "operation": "VERIFY_RECORD_PRESENT",
+        "state": "PRESENT",
+        "evidence_id": ""
+      }
+    ]
+  }
+}

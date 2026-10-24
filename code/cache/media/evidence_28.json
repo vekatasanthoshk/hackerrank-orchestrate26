@@ -1,0 +1,25 @@
+{
+  "file_id": "evidence_28",
+  "artifact_kind": "screenshot",
+  "title": "Helpline Console - CS-5034 Where is my delivery?",
+  "records": [
+    {
+      "resource_id": "support_1034",
+      "system": "support_platform",
+      "aliases": [
+        "CS-5034",
+        "ORD-20265034"
+      ],
+      "full_name": "Kofi Agyeman",
+      "email": "kagyeman8947@fastmail.com",
+      "phone": null,
+      "customer_reference": null,
+      "status": "Conversation with agent Maya Chen; order ORD-20265034",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-05-24T07:00:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

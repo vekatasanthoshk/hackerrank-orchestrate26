@@ -1,0 +1,92 @@
+{
+  "file_id": "evidence_37",
+  "artifact_kind": "screenshot",
+  "title": "Sentinel - Account events, subject user_03",
+  "records": [
+    {
+      "resource_id": "audit_record_003",
+      "system": "security_service",
+      "aliases": [],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Account closure recorded; Valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T07:00:00Z"
+    },
+    {
+      "resource_id": "audit_record_002",
+      "system": "security_service",
+      "aliases": [],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Session revoked; Valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T07:00:00Z"
+    },
+    {
+      "resource_id": "audit_record_001",
+      "system": "security_service",
+      "aliases": [],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Recovery challenge completed; Valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T07:00:00Z"
+    },
+    {
+      "resource_id": "audit_record_006",
+      "system": "security_service",
+      "aliases": [],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Email change confirmed; Valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T07:00:00Z"
+    },
+    {
+      "resource_id": "audit_record_005",
+      "system": "security_service",
+      "aliases": [],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Login from new device; Valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T07:00:00Z"
+    },
+    {
+      "resource_id": "audit_record_004",
+      "system": "security_service",
+      "aliases": [],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Password changed; Valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T07:00:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

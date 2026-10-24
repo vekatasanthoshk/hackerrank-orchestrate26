@@ -1,0 +1,22 @@
+{
+  "file_id": "evidence_19",
+  "artifact_kind": "screenshot",
+  "title": "Pulse Analytics - Omar Darwish",
+  "records": [
+    {
+      "resource_id": "analytics_7438",
+      "system": "analytics_platform",
+      "aliases": [],
+      "full_name": "Omar Darwish",
+      "email": "darwish.omar@icloud.com",
+      "phone": null,
+      "customer_reference": "user_20",
+      "status": "Last 90 days; last activity 13 Jul 2026 14:22 UTC",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-07-13T10:00:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

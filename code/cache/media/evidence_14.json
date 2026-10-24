@@ -1,0 +1,36 @@
+{
+  "file_id": "evidence_14",
+  "artifact_kind": "screenshot",
+  "title": "BridgeOps - Connections",
+  "records": [
+    {
+      "resource_id": "data_flow_1121",
+      "system": "integration_service",
+      "aliases": [],
+      "full_name": null,
+      "email": "jain.aditi@gmail.com",
+      "phone": null,
+      "customer_reference": null,
+      "status": "Healthy; Continuous sync to customer_analytics_warehouse",
+      "result": "FOUND",
+      "enabled": "true",
+      "restore_allowed": null,
+      "observed_at": "2026-08-07T08:00:00Z"
+    },
+    {
+      "resource_id": "data_flow_9846",
+      "system": "integration_service",
+      "aliases": [],
+      "full_name": null,
+      "email": "lucia-torres@gmail.com",
+      "phone": null,
+      "customer_reference": null,
+      "status": "Continuous to customer_analytics_warehouse",
+      "result": "FOUND",
+      "enabled": "true",
+      "restore_allowed": null,
+      "observed_at": "2026-08-07T08:00:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

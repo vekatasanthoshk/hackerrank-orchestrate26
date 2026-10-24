@@ -1,0 +1,45 @@
+{
+  "name": "custom_05_decoy_similar_email",
+  "rationale": "Search screenshot evidence_09 returns two hits: search_428 (g.silva76@gmail.com, user_13) and decoy search_1874 (g.silva76.jr@gmail.com, a different person). Only the grounded hit may be reported. Resources first observed after audit_at (account_8491, audit_record_8925 in evidence_01) are out of scope.",
+  "request": {
+    "case_id": "custom_05_decoy_similar_email",
+    "email": "g.silva76@gmail.com",
+    "requested_at": "2026-08-30T03:00:00Z",
+    "reported_status": "COMPLETE",
+    "reported_at": "2026-08-31T21:00:00Z",
+    "audit_at": "2026-09-05T08:00:00Z",
+    "request_text": "Delete my account. Note: there is another customer with an almost identical address; do not touch their records."
+  },
+  "expected": {
+    "deletion_status": "INCOMPLETE",
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "FINDING",
+        "system_id": "search_service",
+        "resource_id": "search_428",
+        "operation": "REPORT_REMAINING_RECORD",
+        "state": "PRESENT",
+        "evidence_id": "evidence_09"
+      },
+      {
+        "step_no": 2,
+        "phase": "REMEDIATION",
+        "system_id": "search_service",
+        "resource_id": "search_428",
+        "operation": "DELETE_RECORD",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 3,
+        "phase": "VERIFICATION",
+        "system_id": "search_service",
+        "resource_id": "search_428",
+        "operation": "VERIFY_RECORD_ABSENT",
+        "state": "ABSENT",
+        "evidence_id": ""
+      }
+    ]
+  }
+}

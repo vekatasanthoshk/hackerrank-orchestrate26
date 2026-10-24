@@ -1,0 +1,90 @@
+{
+  "name": "custom_03_historical_email_sync",
+  "rationale": "Request arrives under the OLDEST historical email of user_35 (abena.o189466@zoho.com, replaced on 2026-02-03 and again on 2026-06-03). The shift handover (evidence_03) shows the account NOT_FOUND but a search entry FOUND and connector data_flow_2528 ACTIVE under the current address: the sync can recreate deleted data, so the case is INCOMPLETE and the flow must be disabled before the search entry is deleted.",
+  "request": {
+    "case_id": "custom_03_historical_email_sync",
+    "email": "abena.o189466@zoho.com",
+    "requested_at": "2026-09-20T12:00:00Z",
+    "reported_status": "COMPLETE",
+    "reported_at": "2026-09-22T12:00:00Z",
+    "audit_at": "2026-10-01T12:00:00Z",
+    "request_text": "I changed my email twice. Please delete the account and everything linked to my old addresses, including anything a sync job may have copied back."
+  },
+  "expected": {
+    "deletion_status": "INCOMPLETE",
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "FINDING",
+        "system_id": "search_service",
+        "resource_id": "search_1934",
+        "operation": "REPORT_REMAINING_RECORD",
+        "state": "PRESENT",
+        "evidence_id": "evidence_03"
+      },
+      {
+        "step_no": 2,
+        "phase": "FINDING",
+        "system_id": "integration_service",
+        "resource_id": "data_flow_2528",
+        "operation": "REPORT_ACTIVE_DATA_FLOW",
+        "state": "ACTIVE",
+        "evidence_id": "evidence_03"
+      },
+      {
+        "step_no": 3,
+        "phase": "REMEDIATION",
+        "system_id": "integration_service",
+        "resource_id": "data_flow_2528",
+        "operation": "DISABLE_DATA_FLOW",
+        "state": "DISABLED",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 4,
+        "phase": "REMEDIATION",
+        "system_id": "search_service",
+        "resource_id": "search_1934",
+        "operation": "DELETE_RECORD",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 5,
+        "phase": "VERIFICATION",
+        "system_id": "account_service",
+        "resource_id": "account_5193",
+        "operation": "VERIFY_RECORD_ABSENT",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 6,
+        "phase": "VERIFICATION",
+        "system_id": "search_service",
+        "resource_id": "search_1934",
+        "operation": "VERIFY_RECORD_ABSENT",
+        "state": "ABSENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 7,
+        "phase": "VERIFICATION",
+        "system_id": "security_service",
+        "resource_id": "audit_record_2019",
+        "operation": "VERIFY_RECORD_PRESENT",
+        "state": "PRESENT",
+        "evidence_id": ""
+      },
+      {
+        "step_no": 8,
+        "phase": "VERIFICATION",
+        "system_id": "integration_service",
+        "resource_id": "data_flow_2528",
+        "operation": "VERIFY_DATA_FLOW_DISABLED",
+        "state": "DISABLED",
+        "evidence_id": ""
+      }
+    ]
+  }
+}

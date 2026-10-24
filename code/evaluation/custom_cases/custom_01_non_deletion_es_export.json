@@ -1,0 +1,17 @@
+{
+  "name": "custom_01_non_deletion_es_export",
+  "rationale": "Non-deletion request written in Spanish (data export / portability) that mentions the account and personal data. Must be NOT_APPLICABLE with [] even though the subject has plenty of remaining data.",
+  "request": {
+    "case_id": "custom_01_non_deletion_es_export",
+    "email": "novak.tomasz@icloud.com",
+    "requested_at": "2026-09-09T12:00:00Z",
+    "reported_status": "NOT_STARTED",
+    "reported_at": "2026-09-12T12:00:00Z",
+    "audit_at": "2026-10-01T12:00:00Z",
+    "request_text": "Quisiera descargar una copia de mis datos personales en un formato portátil. Por favor, no cierren mi cuenta."
+  },
+  "expected": {
+    "deletion_status": "NOT_APPLICABLE",
+    "steps": []
+  }
+}

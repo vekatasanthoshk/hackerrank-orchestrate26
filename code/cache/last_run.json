@@ -1,0 +1,22 @@
+{
+  "run_id": "20261024T154822Z",
+  "finished_at": "2026-10-24T15:48:24Z",
+  "requests_file": "dataset/deletion_requests.csv",
+  "output_file": "output.csv",
+  "requests": 518,
+  "statuses": {
+    "INCOMPLETE": 348,
+    "COMPLETE": 160,
+    "NOT_APPLICABLE": 10
+  },
+  "intent": {
+    "llm_calls": 0,
+    "cache_hits": 0,
+    "rule_only": 518
+  },
+  "intent_disagreements": 0,
+  "intent_model": "claude-haiku-5-5",
+  "media_cache_files": 15,
+  "media_observations": 35,
+  "llm_enabled": false
+}

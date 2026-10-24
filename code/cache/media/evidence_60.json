@@ -1,0 +1,22 @@
+{
+  "file_id": "evidence_60",
+  "artifact_kind": "screenshot",
+  "title": "Audience Operations - Soo-jin Park",
+  "records": [
+    {
+      "resource_id": "marketing_001",
+      "system": "marketing_platform",
+      "aliases": [],
+      "full_name": "Soo-jin Park",
+      "email": "sj.park@naver.com",
+      "phone": "+82 10-5837-9451",
+      "customer_reference": null,
+      "status": "Live; email opt-in Yes; last refreshed 15 Sep 2026 23:40 UTC",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-16T07:20:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

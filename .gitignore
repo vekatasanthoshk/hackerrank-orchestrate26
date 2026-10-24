@@ -1,0 +1,6 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+code/cache/usage_ledger.jsonl
+/code.zip

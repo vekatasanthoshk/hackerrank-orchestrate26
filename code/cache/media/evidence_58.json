@@ -1,0 +1,27 @@
+{
+  "file_id": "evidence_58",
+  "artifact_kind": "pdf",
+  "title": "Delivery address correction request CS-4827 / support_001",
+  "records": [
+    {
+      "resource_id": "support_001",
+      "system": "support_platform",
+      "aliases": [
+        "CS-4827",
+        "ORD-20264827",
+        "delivery_address_correction.pdf"
+      ],
+      "full_name": "Priya Raman",
+      "email": "priya.raman@gmail.com",
+      "phone": "+91 98765 73142",
+      "customer_reference": null,
+      "status": "customer-uploaded attachment, 312 KB",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-12T07:30:00Z",
+      "category": "SUPPORT_ATTACHMENT"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

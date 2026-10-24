@@ -1,0 +1,25 @@
+{
+  "file_id": "evidence_18",
+  "artifact_kind": "pdf",
+  "title": "Northstar Shop - Customer Statement NST-2026-0718-1842",
+  "records": [
+    {
+      "resource_id": null,
+      "system": "export_service",
+      "aliases": [
+        "NST-2026-0718-1842",
+        "ORD-20261260"
+      ],
+      "full_name": "Ingrid Dahl",
+      "email": "ingrid.dahl@outlook.com",
+      "phone": null,
+      "customer_reference": "user_18",
+      "status": "statement; billing paid; delivered 14 Jul",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-07-18T11:00:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}

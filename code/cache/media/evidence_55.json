@@ -1,0 +1,24 @@
+{
+  "file_id": "evidence_55",
+  "artifact_kind": "pdf",
+  "title": "Compliance Journal - Signed record extract CJX-20260905-0630",
+  "records": [
+    {
+      "resource_id": "audit_record_003",
+      "system": "security_service",
+      "aliases": [
+        "CJX-20260905-0630"
+      ],
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": "user_03",
+      "status": "Account closure recorded; retain until 25 Aug 2027; integrity seal valid",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-09-05T06:30:00Z"
+    }
+  ],
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+}
