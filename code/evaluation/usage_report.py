@@ -32,6 +32,7 @@ def main():
     this_run = [r for r in rows if r["run_id"] == run["run_id"]]
     earlier_media = [r for r in rows if r["run_id"] != run["run_id"] and r["purpose"] == "media_extraction"]
     n = max(run["requests"], 1)
+    texts = sum(run["intent"].get(k, 0) for k in ("llm_calls", "cache_hits", "rule_only"))
 
     per = defaultdict(lambda: {"calls": 0, "in": 0, "out": 0})
     for r in this_run:
@@ -53,6 +54,7 @@ def main():
          f"- input: `{run['requests_file']}` -> `{run['output_file']}`; {run['requests']} requests",
          f"- statuses: {', '.join(f'{k} {v}' for k, v in sorted(run['statuses'].items()))}",
          f"- LLM intent classification enabled: **{run['llm_enabled']}** "
+         f"over {texts} distinct request texts "
          f"(llm calls {run['intent'].get('llm_calls', 0)}, cache hits {run['intent'].get('cache_hits', 0)}, "
          f"rule-only {run['intent'].get('rule_only', 0)}, LLM-vs-rule disagreements {run['intent_disagreements']})",
          f"- media evidence: {run['media_cache_files']} PNG/PDF artifacts served from `code/cache/media/` "
@@ -90,10 +92,11 @@ def main():
               "each distinct request text once with `claude-haiku-5-5` and this report is regenerated with",
               "the measured numbers.", "",
               "*Projection* for a keyed run (prompt is ~430 tokens + request text ~60 tokens; JSON answer",
-              f"~40 tokens plus low-effort thinking): {run['requests']} calls x ~500 input / ~150 output tokens",
-              f"= ~{run['requests'] * 500:,} input + ~{run['requests'] * 150:,} output tokens, about "
-              f"${cost('claude-haiku-5-5', run['requests'] * 500, run['requests'] * 150):.3f} total "
-              f"(~${cost('claude-haiku-5-5', 500, 150):.6f} per request).", ""]
+              f"~40 tokens plus low-effort thinking): one call per distinct text = {texts} calls x ~500 input /",
+              f"~150 output tokens = ~{texts * 500:,} input + ~{texts * 150:,} output tokens, about "
+              f"${cost('claude-haiku-5-5', texts * 500, texts * 150):.3f} total "
+              f"(~${cost('claude-haiku-5-5', texts * 500, texts * 150) / n:.6f} per request over {run['requests']} requests).",
+              ""]
     out = os.path.join(HERE, "usage_report.md")
     open(out, "w", encoding="utf-8").write("\n".join(L))
     print("wrote", out)

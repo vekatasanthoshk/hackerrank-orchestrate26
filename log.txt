@@ -348,3 +348,25 @@ repo_root=/home/user/hackerrank-orchestrate26
 worktree=main
 parent_agent=none
 
+## [2026-10-24T21:29:50Z] Full review, testing and hardening before submission
+
+User Prompt (verbatim, secrets redacted):
+review, test  the entire project and make it perfect and tell what else to do for the submittion
+
+Agent Response Summary:
+Reviewed every module and fixed four latent issues: the state merger could let an earlier same-day read mask a later 404; media aliases were resolved lazily, so results could depend on case order; earlier non-deletion requests could claim resources in episode scoping; refusals or non-JSON model answers would have raised. Intent is now memoised per distinct text (375 texts). Added a 15-test unittest suite, ran clean-room (code.zip + dataset only), Python 3.11 vs 3.13 and determinism checks; all produce the byte-identical output.csv (518 rows, 0 contract problems). Cross-checked the 10 NOT_APPLICABLE decisions against the dataset's CLASSIFY_REQUEST claims (exact match) and found 0 cross-user leakage. Updated README and both reports, rebuilt submission files, and listed the remaining manual steps.
+
+Actions:
+* Edited code/state.py, code/main.py, code/intent.py, code/ingest/media.py, code/evaluation/usage_report.py
+* Created code/tests/test_pipeline.py; python3 -m unittest discover -s code/tests (15 OK)
+* python3 code/main.py; validate_output.py; usage_report.py; evaluation/main.py --write-report
+* Rebuilt submission/code.zip, output.csv, log.txt, agent-trace.zip; git commit; git push (attempted)
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=main
+repo_root=/home/user/hackerrank-orchestrate26
+worktree=main
+parent_agent=none
+

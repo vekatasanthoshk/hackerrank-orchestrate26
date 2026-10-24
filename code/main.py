@@ -98,8 +98,9 @@ class Auditor:
             owned[inferred] = "inferred:deletion-batch"
         dbg["owned"] = owned
         states = []
+        # earlier, already-audited deletion requests of the same subject (episode scoping)
         earlier = [r for uid in users for r in self.requests_by_user.get(uid, [])
-                   if r["audit_at"] < req["requested_at"]]
+                   if r["audit_at"] < req["requested_at"] and self.intent.classify(r["request_text"])[0]]
         for rid in sorted(owned):
             if not owned[rid].startswith("inferred:") and not self._in_scope(rid, req, earlier):
                 continue
@@ -174,7 +175,9 @@ def run(requests_path, out_path, use_llm=None):
         w = csv.writer(fh)
         w.writerow(["case_id", "deletion_status", "steps_json"])
         w.writerows(rows)
-    _write_run_summary(auditor, rows, requests_path, out_path)
+    if os.path.abspath(requests_path) == os.path.abspath(os.path.join(DATASET, "deletion_requests.csv")) \
+            and os.path.abspath(out_path) == os.path.abspath(os.path.join(ROOT, "output.csv")):
+        _write_run_summary(auditor, rows, requests_path, out_path)  # only the submission run feeds usage_report.md
     return auditor, rows
 
 

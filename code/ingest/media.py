@@ -56,8 +56,12 @@ def _call_vision(path, file_id, origin, captured_at):
                                   output_config={"effort": "medium"},
                                   messages=[{"role": "user", "content": content}])
     ledger.record("media_extraction", MODEL, resp.usage, file_id)
+    if resp.stop_reason == "refusal":
+        raise ValueError("model refused")
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     m = re.search(r"\{.*\}", text, re.S)
+    if not m:
+        raise ValueError("no JSON in model answer")
     return json.loads(m.group(0))
 
 
@@ -68,7 +72,10 @@ def extract(path, file_id, origin, captured_at):
         return json.load(open(cache, encoding="utf-8"))
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return {"records": [], "error": "no cache and no ANTHROPIC_API_KEY"}
-    data = _call_vision(path, file_id, origin, captured_at)
+    try:
+        data = _call_vision(path, file_id, origin, captured_at)
+    except Exception as exc:  # never cache a failed extraction; the run continues without this file
+        return {"records": [], "error": f"{type(exc).__name__}: {exc}"}
     data["extracted_by"] = MODEL
     json.dump(data, open(cache, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     return data

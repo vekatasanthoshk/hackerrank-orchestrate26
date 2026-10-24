@@ -124,6 +124,31 @@ failed on the earlier builds listed below and pass now. All 5 pass with the rule
 classifier (the build environment had no API key, so the Haiku classifier has not been scored
 here; run `python3 code/evaluation/main.py` with a key to score it the same way).
 
+## Independent checks on the 518 predictions
+
+No gold labels exist for the 518 evaluation requests, so these consistency checks were run
+on the output (`code/tests/test_pipeline.py` automates the contract and determinism ones):
+
+| Check | Result |
+|---|---|
+| contract (`validate_output.py`): header, 518 rows, natural order, JSON, step fields, legal op/state pairs, step numbering, phase order, evidence rules, no evidence after `audit_at` | 0 problems |
+| determinism: two runs, and Python 3.11 vs 3.13 | byte-identical (`md5 bd6b03da…`) |
+| clean-room run from `code.zip` + `dataset/` only, no API key | byte-identical output |
+| NOT_APPLICABLE cases vs the dataset's own `CLASSIFY_REQUEST` claims (not used as an input) | the 10 accounts those claims name belong exactly to our 10 NOT_APPLICABLE subjects |
+| decoy leakage: one resource attributed to two different subjects | 0 resources |
+| every finding has a remediation and a verification for the same resource | 518 / 518 cases |
+| duplicate steps in a case | 0 |
+
+## Automated tests
+
+`python3 -m unittest discover -s code/tests -v` runs 15 tests in ~3 s: all six log dialects,
+the sha256 email-hash rule for all 850 users, identifier normalisation, historical-email and
+decoy resolution, state interpretation (404s, hits, enabled flows, restore decisions,
+free-text PII, `[REDACTED]` bodies, attachment / secondary-identifier categories), multilingual
+intent (deletion and non-deletion), policy mapping, the case_11 ordering, the sample score
+floor (status 1.000, precision 1.000, recall ≥ 0.86), all custom cases, and a full
+518-case run checked for contract validity and run-to-run determinism.
+
 ## Failures found and improvements made
 
 Iteration log from development. Sample metrics are shown after each change.
@@ -139,6 +164,10 @@ Iteration log from development. Sample metrics are shown after each change.
 | 6 | support tickets in snapshot bundles judged redacted although the body reads "send the delivery update to noah.f438085@outlook.com" | exposure looked only at structured PII columns | scan free-text fields for emails / phone numbers, both for exposure and as linkage identifiers | 3 evaluation cases flip to INCOMPLETE |
 | 7 | trace merging read `result=miss` from a cache lookup as an index miss | log lines in one trace were merged blindly | drop infrastructure events (cache, connection, retry) before merging | — |
 | 8 | output order `case_100 < case_33` | lexical sort | natural case order, as in `deletion_requests.csv`; validator enforces it | — |
+| 9 | (review) two read-backs of one resource on the same day in one log were OR-merged, so an earlier hit could mask a later 404 | copy merging keyed on file + date | merge only true copies: all tables of one SQL snapshot, or the identical read-back instant | output unchanged (no case hit it yet) |
+| 10 | (review) media aliases (statement numbers, file names) were resolved lazily while auditing, so results could depend on case order | alias resolution inside the per-user loop | resolve aliases once when the evidence index is built | output unchanged |
+| 11 | (review) an earlier *non-deletion* request of the same person could claim resources in episode scoping; intent stats counted repeat texts | scoping used every earlier request | only earlier deletion requests close an episode; intent memoised per distinct text (375 texts / 518 requests) | output unchanged |
+| 12 | (review) a model refusal or non-JSON answer would have raised | no guard | refusals / unparseable answers / SDK errors fall back to the rule classifier; failed vision calls are never cached | — |
 
 Decoys and grounding: deletion-worker activity rows (`DELETE_RECORD … SUCCESS`) are never
 treated as proof of state (721 FAILED / 376 PARTIAL claims exist), and identity is never

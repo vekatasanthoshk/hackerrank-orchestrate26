@@ -19,9 +19,10 @@ python3 code/evaluation/validate_output.py         # contract checks on output.c
 python3 code/evaluation/main.py                    # scores on samples + custom cases
 python3 code/evaluation/usage_report.py            # regenerates evaluation/usage_report.md
 python3 code/main.py --inspect case_11             # identities, matched evidence, decision trace
+python3 -m unittest discover -s code/tests -v      # 15 unit + end-to-end tests (stdlib only)
 ```
 
-Python 3.10+ is required. The deterministic pipeline uses only the standard library
+Python 3.10+ is required (tested on 3.11 and 3.13; output is byte-identical across both). The deterministic pipeline uses only the standard library
 (`sqlite3`, `csv`, `json`, `re`); `anthropic` and `pymupdf` are needed only for live model calls.
 A full run takes about 1 s.
 
@@ -46,7 +47,8 @@ code/
   ledger.py            per-call token ledger (feeds usage_report.md)
   prompts/*.md         every model prompt
   docs/DATA_NOTES.md   data reconnaissance and rules derived from the samples
-  evaluation/          main.py (metrics), validate_output.py, custom_cases/, reports
+  evaluation/          main.py (metrics), validate_output.py, usage_report.py, custom_cases/, reports
+  tests/               unittest suite: parsers, identity, policy, ordering, samples floor, determinism
   cache/media/         vision extractions of the 15 PNG/PDF files (re-used by every run)
 ```
 

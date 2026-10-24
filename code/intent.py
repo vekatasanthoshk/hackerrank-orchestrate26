@@ -82,6 +82,16 @@ def _prompt():
     return system, user
 
 
+def anthropic_errors():
+    """SDK error classes (empty tuple when the SDK is not installed)."""
+    try:
+        import anthropic
+
+        return (anthropic.APIStatusError, anthropic.APIConnectionError, anthropic.AuthenticationError)
+    except ImportError:
+        return ()
+
+
 def _llm_intent(text):
     import anthropic
 
@@ -91,8 +101,12 @@ def _llm_intent(text):
                                   output_config={"effort": "low"},
                                   messages=[{"role": "user", "content": user.replace("{request_text}", text)}])
     ledger.record("intent", MODEL, resp.usage)
+    if resp.stop_reason == "refusal":
+        raise ValueError("model refused")
     out = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     m = re.search(r"\{.*\}", out, re.S)
+    if not m:
+        raise ValueError("no JSON in model answer")
     data = json.loads(m.group(0))
     label = "DELETION" if data.get("intent") == "DELETION" else "NOT_DELETION"
     return label, data.get("reason", "")
@@ -103,9 +117,12 @@ class IntentClassifier:
         self.cache = _load_cache()
         self.use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) if use_llm is None else use_llm
         self.stats = {"llm_calls": 0, "cache_hits": 0, "rule_only": 0, "disagreements": []}
+        self.memo = {}  # text -> result within this run (stats count each distinct text once)
 
     def classify(self, text):
         """Return (is_deletion, source, reason)."""
+        if text in self.memo:
+            return self.memo[text]
         key = hashlib.sha256(text.encode()).hexdigest()
         rule_label, rule_reason = rule_intent(text)
         if key in self.cache:
@@ -119,7 +136,8 @@ class IntentClassifier:
                 self.stats["llm_calls"] += 1
                 self.cache[key] = {"intent": label, "reason": reason, "source": src, "text": text[:160]}
                 _save_cache(self.cache)
-            except Exception as exc:  # network / quota problems fall back to rules
+            except (anthropic_errors() + (ValueError, KeyError, AttributeError)) as exc:
+                # API / network errors, refusals and unparseable answers fall back to the rules
                 label, src, reason = rule_label, "rules(fallback)", f"{rule_reason}; llm error {type(exc).__name__}"
                 self.stats["rule_only"] += 1
         else:
@@ -127,4 +145,5 @@ class IntentClassifier:
             self.stats["rule_only"] += 1
         if label != rule_label:
             self.stats["disagreements"].append((text[:80], label, rule_label))
-        return label == "DELETION", src, reason
+        self.memo[text] = (label == "DELETION", src, reason)
+        return self.memo[text]

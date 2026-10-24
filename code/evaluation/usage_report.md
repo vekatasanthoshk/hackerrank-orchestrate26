@@ -6,10 +6,10 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 ## Final full-dataset run
 
-- run id: `20261024T154822Z` (finished 2026-10-24T15:48:24Z)
+- run id: `20261024T212935Z` (finished 2026-10-24T21:29:35Z)
 - input: `dataset/deletion_requests.csv` -> `output.csv`; 518 requests
 - statuses: COMPLETE 160, INCOMPLETE 348, NOT_APPLICABLE 10
-- LLM intent classification enabled: **False** (llm calls 0, cache hits 0, rule-only 518, LLM-vs-rule disagreements 0)
+- LLM intent classification enabled: **False** over 375 distinct request texts (llm calls 0, cache hits 0, rule-only 375, LLM-vs-rule disagreements 0)
 - media evidence: 15 PNG/PDF artifacts served from `code/cache/media/` (35 extracted records); 0 vision calls in this run
 
 ## Provider / model totals (this run)
@@ -40,5 +40,5 @@ each distinct request text once with `claude-haiku-5-5` and this report is regen
 the measured numbers.
 
 *Projection* for a keyed run (prompt is ~430 tokens + request text ~60 tokens; JSON answer
-~40 tokens plus low-effort thinking): 518 calls x ~500 input / ~150 output tokens
-= ~259,000 input + ~77,700 output tokens, about $0.065 total (~$0.000125 per request).
+~40 tokens plus low-effort thinking): one call per distinct text = 375 calls x ~500 input /
+~150 output tokens = ~187,500 input + ~56,250 output tokens, about $0.047 total (~$0.000090 per request over 518 requests).

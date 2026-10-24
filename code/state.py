@@ -39,6 +39,15 @@ class EvidenceIndex:
         self.ids = identities
         self.links = catalog_links
         self.by_resource = defaultdict(list)
+        # Media records whose id is not printed (statement numbers, file names, user refs)
+        # take the resource id of the data-catalog link that names that alias. Done once
+        # here so the result never depends on which case happens to be audited first.
+        alias_map = {l["alias"]: l for l in catalog_links}
+        for o in self.obs:
+            if not o.resource_id:
+                hit = next((alias_map[a] for a in sorted(o.aliases) if a in alias_map), None)
+                if hit:
+                    o.resource_id, o.system_id = hit["resource_id"], hit["system_id"]
         for o in self.obs:
             if o.resource_id:
                 self.by_resource[o.resource_id].append(o)
@@ -54,24 +63,12 @@ class EvidenceIndex:
         (and every cited evidence id) is taken only from files visible at audit_at.
         """
         owned = {}
-        alias_map = {}
         for l in self.links:
-            alias_map[l["alias"]] = l
             if l["user_id"] == uid or uid in self.ids.owners([l["email"]]):
                 owned.setdefault(l["resource_id"], f"catalog:{l['activity_id']}")
         for o in self.obs:
             if uid in self.owner_cache[id(o)] and o.resource_id:
                 owned.setdefault(o.resource_id, f"ident:{o.file_id}")
-        # aliases printed on media (statement numbers, file names, user refs) resolved via catalog
-        for o in self.obs:
-            if o.resource_id:
-                continue
-            for a in o.aliases:
-                l = alias_map.get(a)
-                if l and l["resource_id"] in owned:
-                    o.resource_id = l["resource_id"]
-                    o.system_id = l["system_id"]
-                    self.by_resource[o.resource_id].append(o)
         # records that point at another resource (search doc -> source account)
         for rid in list(owned):
             for o in self.by_resource.get(rid, []):
@@ -79,16 +76,16 @@ class EvidenceIndex:
                     owned.setdefault(target, f"link:{rid}")
         return owned
 
-    def last_seen(self, resource_id):
-        obs = self.by_resource.get(resource_id, [])
-        return max((o.observed_at for o in obs), default="")
-
     def state(self, resource_id, audit_at):
         visible = [o for o in self.by_resource.get(resource_id, []) if o.captured_at <= audit_at]
         if not visible:
             return None
         latest = max(visible, key=lambda o: (o.observed_at, o.captured_at))
-        same = [o for o in visible if o.file_id == latest.file_id and o.observed_at[:10] == latest.observed_at[:10]]
+        # Copies of the record inside the same snapshot: every table of a SQL capture
+        # (primary + replicas), or the same read-back instant in any other format. A later
+        # read in the same log does not get overridden by an earlier one.
+        same = [o for o in visible if o.file_id == latest.file_id
+                and (o.source.startswith("sql") or o.observed_at == latest.observed_at)]
         rs = ResourceState(latest.system_id, resource_id)
         rs.category = _pick_category(visible)
         rs.exists = any(o.exists for o in same)
