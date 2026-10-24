@@ -69,6 +69,25 @@ class EvidenceIndex:
         for o in self.obs:
             if uid in self.owner_cache[id(o)] and o.resource_id:
                 owned.setdefault(o.resource_id, f"ident:{o.file_id}")
+        return self._follow_links(owned)
+
+    def owned_by_keys(self, keys):
+        """Ownership for a subject known only by normalised identifier keys
+        (a request email that is not in user_identities.csv)."""
+        from identity import norm
+
+        owned = {}
+        if not keys:
+            return owned
+        for l in self.links:
+            if norm(l["email"]) in keys:
+                owned.setdefault(l["resource_id"], f"catalog:{l['activity_id']}")
+        for o in self.obs:
+            if o.resource_id and any(norm(i) in keys for i in o.idents):
+                owned.setdefault(o.resource_id, f"ident:{o.file_id}")
+        return self._follow_links(owned)
+
+    def _follow_links(self, owned):
         # records that point at another resource (search doc -> source account)
         for rid in list(owned):
             for o in self.by_resource.get(rid, []):

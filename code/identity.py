@@ -46,14 +46,15 @@ def email_hash(email):
 class Identities:
     def __init__(self, dataset):
         self.users = {}
-        with open(os.path.join(dataset, "user_identities.csv"), encoding="utf-8") as fh:
+        with open(os.path.join(dataset, "user_identities.csv"), encoding="utf-8-sig") as fh:
             for r in csv.DictReader(fh):
                 self.users[r["user_id"]] = {
                     "user_id": r["user_id"], "name": r["name"],
                     "emails": {r["email"].strip().lower()}, "phones": {r["phone"]},
-                    "hashes": {r["email_hash"].lower()}, "history": [],
+                    "hashes": {(r.get("email_hash") or "").lower()} - {""}, "history": [],
+                    "current_email": r["email"].strip().lower(),
                 }
-        with open(os.path.join(dataset, "user_audit_log.csv"), encoding="utf-8") as fh:
+        with open(os.path.join(dataset, "user_audit_log.csv"), encoding="utf-8-sig") as fh:
             for r in csv.DictReader(fh):
                 u = self.users.get(r["user_id"])
                 if not u:
@@ -76,7 +77,25 @@ class Identities:
                 self.index.setdefault(k, set()).add(uid)
 
     def users_for_email(self, email):
-        return sorted(self.index.get((email or "").strip().lower(), set()))
+        """Users whose current or historical email matches (case-insensitive).
+
+        If an address was reused by several users, the user who holds it *now* wins;
+        if that is still ambiguous every candidate is returned (and audited together)."""
+        key = (email or "").strip().lower()
+        found = sorted(self.index.get(key, set()))
+        if len(found) > 1:
+            current = [u for u in found if self.users[u]["current_email"] == key]
+            if len(current) == 1:
+                return current
+        return found
+
+    def keys_for_unknown_email(self, email):
+        """Grounded identifiers for a request email that is not in user_identities.csv:
+        the address itself and its sha256 hash (never names or partial matches)."""
+        key = (email or "").strip().lower()
+        if not EMAIL_RE.match(key):
+            return set()
+        return {key, email_hash(key)}
 
     def keys(self, uid):
         return self.users[uid]["keys"]

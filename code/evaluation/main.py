@@ -105,7 +105,8 @@ def load_custom_cases():
     folder = os.path.join(HERE, "custom_cases")
     for name in sorted(os.listdir(folder)):
         if name.endswith(".json"):
-            cases.append(json.load(open(os.path.join(folder, name), encoding="utf-8")))
+            with open(os.path.join(folder, name), encoding="utf-8") as fh:
+                cases.append(json.load(fh))
     return cases
 
 
@@ -196,10 +197,14 @@ def write_metrics(s_summary, s_cases, c_summary, c_cases):
             lines.append(f"| {c['case_id']} | {c['gold_status']} | {c['pred_status']} | {'yes' if c['exact'] else 'no'} |")
     lines += ["", "<!-- METRICS:END -->"]
     block = "\n".join(lines)
-    text = open(path, encoding="utf-8").read() if os.path.exists(path) else "<!-- METRICS:START --><!-- METRICS:END -->"
+    text = "<!-- METRICS:START --><!-- METRICS:END -->"
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
     start, end = text.find("<!-- METRICS:START"), text.find("<!-- METRICS:END -->")
     text = text[:start] + block + text[end + len("<!-- METRICS:END -->"):]
-    open(path, "w", encoding="utf-8").write(text)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
     print(f"\nupdated {path}")
 
 

@@ -18,11 +18,17 @@ It never creates a finding by itself.
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from ingest.common import ts_norm
+
 WINDOW = timedelta(hours=3)
 
 
 def _t(s):
-    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ")
+    """Parse a timestamp in any ISO form; None when it cannot be parsed."""
+    try:
+        return datetime.strptime(ts_norm(s or ""), "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
 
 
 def infer_batch_accounts(requests, activity, index, identities):
@@ -46,7 +52,10 @@ def infer_batch_accounts(requests, activity, index, identities):
         if not need:
             continue
         rep = _t(reported_at)
-        cands = sorted((a for a in submissions if timedelta(0) <= rep - _t(a["event_time"]) <= WINDOW),
+        if rep is None:
+            continue
+        cands = sorted((a for a in submissions
+                        if _t(a["event_time"]) is not None and timedelta(0) <= rep - _t(a["event_time"]) <= WINDOW),
                        key=lambda a: a["event_time"])
         cands = list(dict.fromkeys(a["resource_id"] for a in cands))
         if len(need) == 1 and len(cands) == 1:

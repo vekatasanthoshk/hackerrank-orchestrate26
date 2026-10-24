@@ -25,5 +25,6 @@ def record(purpose, model, usage, ref="", cached=False):
 def load(run_id=None):
     if not os.path.exists(PATH):
         return []
-    rows = [json.loads(l) for l in open(PATH, encoding="utf-8") if l.strip()]
+    with open(PATH, encoding="utf-8") as fh:
+        rows = [json.loads(line) for line in fh if line.strip()]
     return [r for r in rows if run_id is None or r["run_id"] == run_id]

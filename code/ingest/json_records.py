@@ -8,15 +8,17 @@ is inherited from enclosing objects.
 """
 import json
 
-from .common import flatten, interpret, make_obs, system_for, SYSTEM_CATEGORY
+from .common import MAX_DEPTH, flatten, interpret, make_obs, system_for, SYSTEM_CATEGORY
 
 TIME_KEYS = ("observed_at", "recorded_at", "captured_at", "exported_at")
 
 
-def _records(node, ctx):
+def _records(node, ctx, depth=0):
+    if depth > MAX_DEPTH:
+        return
     if isinstance(node, list):
         for x in node:
-            yield from _records(x, ctx)
+            yield from _records(x, ctx, depth + 1)
         return
     if not isinstance(node, dict):
         return
@@ -35,13 +37,14 @@ def _records(node, ctx):
     for k, v in node.items():
         if k == "service_exports" and isinstance(v, dict):
             for svc, colls in v.items():
-                yield from _records(colls, dict(ctx, system=svc))
+                yield from _records(colls, dict(ctx, system=svc), depth + 1)
         elif isinstance(v, (dict, list)):
-            yield from _records(v, ctx)
+            yield from _records(v, ctx, depth + 1)
 
 
 def parse_json(path, file_id, captured_at):
-    data = json.load(open(path, encoding="utf-8"))
+    with open(path, encoding="utf-8-sig") as fh:
+        data = json.load(fh)
     out = []
     for node, ctx in _records(data, {"time": captured_at}):
         rec = dict(node)
@@ -57,7 +60,9 @@ def parse_json(path, file_id, captured_at):
         rec = flatten(rec)
         if nested_profile:
             rec["profile"] = None
-        rid = rec["resource_id"]
+        rid = rec["resource_id"].strip()
+        if not rid:
+            continue
         system = system_for(rid) or ctx.get("system")
         if ctx.get("system") in SYSTEM_CATEGORY and system_for(rid) is None:
             system = ctx["system"]

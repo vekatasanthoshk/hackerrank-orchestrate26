@@ -429,3 +429,25 @@ repo_root=/home/user/hackerrank-orchestrate26
 worktree=main
 parent_agent=none
 
+## [2026-10-24T22:50:58Z] Improve agent robustness for every use case and fix security flaws
+
+User Prompt (verbatim, secrets redacted):
+improve the code of the agent and fix it for every usecase. also chech security flaws too
+
+Agent Response Summary:
+Security review found and fixed: unrestricted execution of evidence SQL (ATTACH could create files) -> SQLite authorizer sandbox with quoted identifiers; unchecked manifest paths and cache file names -> path containment and file_id allow-list; prompt injection via request or artifact text -> delimited data blocks, strict answer schema, rule veto on model DELETION, validated media records; raw request text stored in the intent cache -> hashes only; non-atomic writes. Robustness for unseen inputs: per-file error isolation, size/depth limits, UTC timestamp normalisation everywhere, unknown-email and reused-email handling, duplicate/blank case ids, empty text, generic PII detection for categories not in this dataset, and a 'proven' flag so unknown states are never cited as proof. Added 17 robustness/security tests (32 total, pass on Python 3.11 and 3.13); output.csv is byte-identical (518 rows, 0 problems); documented in code/docs/SECURITY.md. The agent-trace snapshot was not refreshed (copying session transcripts into the repo was blocked by the session's safety check).
+
+Actions:
+* Edited code/ingest/{__init__,common,sql,json_records,media,text,logs}.py, code/{main,intent,identity,state,policy,accounts,ledger}.py, prompts/*.md, evaluation/{main,usage_report,validate_output}.py
+* Created code/tests/test_robustness.py, code/docs/SECURITY.md; updated README and evaluation report
+* python3 -m unittest (32 OK, py3.11 + py3.13); clean-room run from code.zip; main.py; validate_output.py; reports regenerated
+* Rebuilt submission/code.zip, output.csv, log.txt; git commit; git push
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=main
+repo_root=/home/user/hackerrank-orchestrate26
+worktree=main
+parent_agent=none
+

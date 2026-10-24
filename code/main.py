@@ -13,18 +13,22 @@ Pipeline per case:
 import argparse
 import csv
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from identity import Identities  # noqa: E402
+import ingest  # noqa: E402
 from ingest import load_activity, load_observations  # noqa: E402
+from ingest.common import ts_norm  # noqa: E402
 from intent import IntentClassifier  # noqa: E402
 from planner import order_steps, serialize  # noqa: E402
 from policy import Policy  # noqa: E402
 from state import EvidenceIndex  # noqa: E402
 import accounts  # noqa: E402
+import intent as intent_module  # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 DATASET = os.path.join(ROOT, "dataset")
@@ -33,10 +37,39 @@ DATASET = os.path.join(ROOT, "dataset")
 def _load_env():
     path = os.path.join(ROOT, ".env")
     if os.path.exists(path):
-        for line in open(path, encoding="utf-8"):
-            if "=" in line and not line.lstrip().startswith("#"):
-                k, v = line.strip().split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip('"'))
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if "=" in line and not line.lstrip().startswith("#"):
+                    k, v = line.strip().split("=", 1)
+                    os.environ.setdefault(k.strip().removeprefix("export ").strip(), v.strip().strip('"').strip("'"))
+
+
+REQUIRED_FIELDS = ("case_id", "email", "requested_at", "reported_status", "reported_at", "audit_at",
+                   "request_text")
+TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+
+def normalize_request(raw):
+    """Clean one request row; returns (request, problems).
+
+    Timestamps are normalised to UTC ``...Z`` so the audit cut-off compares correctly.
+    A missing / unparseable ``audit_at`` falls back to ``reported_at`` (the moment the
+    claim was made); if neither is usable the case is audited against all evidence and
+    the problem is reported."""
+    req = {k: (raw.get(k) or "").strip() if isinstance(raw.get(k), str) else raw.get(k) for k in REQUIRED_FIELDS}
+    req["request_text"] = raw.get("request_text") or ""
+    problems = []
+    for k in ("requested_at", "reported_at", "audit_at"):
+        req[k] = ts_norm(req.get(k) or "")
+    if not TS_RE.match(req["audit_at"] or ""):
+        problems.append(f"invalid audit_at {raw.get('audit_at')!r}")
+        req["audit_at"] = req["reported_at"] if TS_RE.match(req["reported_at"] or "") else "9999-12-31T23:59:59Z"
+    if not TS_RE.match(req["requested_at"] or ""):
+        problems.append(f"invalid requested_at {raw.get('requested_at')!r}")
+        req["requested_at"] = "0000-01-01T00:00:00Z"
+    if not req["email"]:
+        problems.append("missing email")
+    return req, problems
 
 
 class Auditor:
@@ -60,6 +93,7 @@ class Auditor:
             if os.path.exists(path):
                 with open(path, encoding="utf-8") as fh:
                     requests += list(csv.DictReader(fh))
+        requests = [normalize_request(r)[0] for r in requests]
         self.inferred_accounts = accounts.infer_batch_accounts(requests, self.activity, self.index, self.ids)
         self.requests_by_user = {}
         for r in requests:
@@ -81,8 +115,9 @@ class Auditor:
             return False
         return True
 
-    def audit(self, req, debug=False):
-        dbg = {"case_id": req["case_id"]}
+    def audit(self, raw_req, debug=False):
+        req, problems = normalize_request(raw_req)
+        dbg = {"case_id": req["case_id"], "problems": problems}
         is_del, src, reason = self.intent.classify(req["request_text"])
         dbg["intent"] = (is_del, src, reason)
         if not is_del:
@@ -93,6 +128,10 @@ class Auditor:
         owned = {}
         for uid in users:
             owned.update(self.index.owned_resources(uid, audit_at))
+        if not users:
+            # unknown address: only records carrying this exact email or its hash
+            owned.update(self.index.owned_by_keys(self.ids.keys_for_unknown_email(req["email"])))
+            problems.append("request email not found in user_identities.csv")
         inferred = self.inferred_accounts.get(req["case_id"])
         if inferred and not any(r.startswith("account_") for r in owned):
             owned[inferred] = "inferred:deletion-batch"
@@ -113,19 +152,24 @@ class Auditor:
         dbg["states"] = states
         findings, fixes, checks = [], [], []
         for rs in states:
-            f, r, v = self.policy.evaluate(rs)
+            f, r, v, proven = self.policy.evaluate(rs)
+            if f is None and v is None:
+                problems.append(f"no deletion rule for category {rs.category} ({rs.resource_id})")
+                continue
             if f:
                 findings.append(_step("FINDING", rs, f, rs.evidence_id))
                 fixes.append(_step("REMEDIATION", rs, r, ""))
             if v:
-                checks.append((rs, v))
+                checks.append((rs, v, proven))
         status = "INCOMPLETE" if findings else "COMPLETE"
         verification = []
-        for rs, v in checks:
-            ev = "" if status == "INCOMPLETE" else (rs.evidence_id or "")
-            if status == "COMPLETE" and not ev:
-                continue  # a COMPLETE case may only contain evidence-backed checks
-            verification.append(_step("VERIFICATION", rs, v, ev))
+        for rs, v, proven in checks:
+            if status == "COMPLETE":
+                if not (proven and rs.evidence_id):
+                    continue  # a COMPLETE case may only contain evidence-backed, proving checks
+                verification.append(_step("VERIFICATION", rs, v, rs.evidence_id))
+            else:
+                verification.append(_step("VERIFICATION", rs, v, ""))
         steps = order_steps(findings + fixes + verification)
         return status, steps, dbg
 
@@ -158,23 +202,33 @@ def _step(phase, rs, op_state, evidence_id):
 def case_sort_key(case_id):
     """Natural order (case_33 < case_100), matching the order of deletion_requests.csv."""
     prefix, _, num = case_id.rpartition("_")
-    return (prefix, int(num)) if num.isdigit() else (case_id, 0)
+    return (prefix, int(num), "") if num.isdigit() else (case_id, 0, case_id)
 
 
-def run(requests_path, out_path, use_llm=None):
-    with open(requests_path, encoding="utf-8") as fh:
+def run(requests_path, out_path, use_llm=None, dataset=None):
+    with open(requests_path, encoding="utf-8-sig") as fh:
         requests = list(csv.DictReader(fh))
-    auditor = Auditor(use_llm=use_llm)
+    auditor = Auditor(dataset=dataset or DATASET, use_llm=use_llm)
     auditor.prepare()
-    rows = []
-    for req in sorted(requests, key=lambda r: case_sort_key(r["case_id"])):
-        status, steps, _ = auditor.audit(req)
-        rows.append((req["case_id"], status, serialize(steps)))
+    rows, seen, warnings = [], set(), list(ingest.WARNINGS)
+    for req in sorted(requests, key=lambda r: case_sort_key((r.get("case_id") or "").strip())):
+        cid = (req.get("case_id") or "").strip()
+        if not cid or cid in seen:
+            warnings.append(f"skipped request with empty or duplicate case_id {cid!r}")
+            continue
+        seen.add(cid)
+        status, steps, dbg = auditor.audit(req)
+        warnings += [f"{cid}: {p}" for p in dbg.get("problems", [])]
+        rows.append((cid, status, serialize(steps)))
     rows.sort(key=lambda r: case_sort_key(r[0]))
-    with open(out_path, "w", encoding="utf-8", newline="") as fh:
+    tmp = out_path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["case_id", "deletion_status", "steps_json"])
         w.writerows(rows)
+    os.replace(tmp, out_path)  # never leave a half-written output.csv behind
+    for msg in warnings:
+        print("warning:", msg, file=sys.stderr)
     if os.path.abspath(requests_path) == os.path.abspath(os.path.join(DATASET, "deletion_requests.csv")) \
             and os.path.abspath(out_path) == os.path.abspath(os.path.join(ROOT, "output.csv")):
         _write_run_summary(auditor, rows, requests_path, out_path)  # only the submission run feeds usage_report.md
@@ -202,14 +256,15 @@ def _write_run_summary(auditor, rows, requests_path, out_path):
         "statuses": statuses,
         "intent": {k: v for k, v in auditor.intent.stats.items() if k != "disagreements"},
         "intent_disagreements": len(auditor.intent.stats["disagreements"]),
-        "intent_model": __import__("intent").MODEL,
+        "intent_model": intent_module.MODEL,
         "media_cache_files": len([f for f in os.listdir(CACHE_DIR) if f.endswith(".json")]),
         "media_observations": len(media_files),
         "llm_enabled": auditor.intent.use_llm,
     }
     path = os.path.join(HERE, "cache", "last_run.json")
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    json.dump(summary, open(path, "w", encoding="utf-8"), indent=2)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(summary, fh, indent=2)
 
 
 def inspect(case_id):
@@ -248,11 +303,12 @@ def main():
     ap.add_argument("--out", default=os.path.join(ROOT, "output.csv"))
     ap.add_argument("--inspect", metavar="CASE_ID")
     ap.add_argument("--no-llm", action="store_true", help="use only the rule-based intent classifier")
+    ap.add_argument("--dataset", default=DATASET, help="dataset folder (default: ./dataset)")
     args = ap.parse_args()
     if args.inspect:
         inspect(args.inspect)
         return
-    auditor, rows = run(args.requests, args.out, use_llm=False if args.no_llm else None)
+    auditor, rows = run(args.requests, args.out, use_llm=False if args.no_llm else None, dataset=args.dataset)
     counts = {}
     for _, st, _ in rows:
         counts[st] = counts.get(st, 0) + 1

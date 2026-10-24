@@ -19,7 +19,7 @@ python3 code/evaluation/validate_output.py         # contract checks on output.c
 python3 code/evaluation/main.py                    # scores on samples + custom cases
 python3 code/evaluation/usage_report.py            # regenerates evaluation/usage_report.md
 python3 code/main.py --inspect case_11             # identities, matched evidence, decision trace
-python3 -m unittest discover -s code/tests -v      # 15 unit + end-to-end tests (stdlib only)
+python3 -m unittest discover -s code/tests -v      # 32 unit, robustness, security and end-to-end tests
 ```
 
 Python 3.10+ is required (tested on 3.11 and 3.13; output is byte-identical across both). The deterministic pipeline uses only the standard library
@@ -48,7 +48,9 @@ code/
   prompts/*.md         every model prompt
   docs/DATA_NOTES.md   data reconnaissance and rules derived from the samples
   evaluation/          main.py (metrics), validate_output.py, usage_report.py, custom_cases/, reports
-  tests/               unittest suite: parsers, identity, policy, ordering, samples floor, determinism
+  tests/               unittest suites: pipeline (parsers, identity, policy, ordering, samples floor,
+                       determinism) and robustness (hostile SQL / paths / model output, edge-case requests)
+  docs/SECURITY.md     threat model, findings and fixes
   cache/media/         vision extractions of the 15 PNG/PDF files (re-used by every run)
 ```
 
@@ -80,6 +82,25 @@ way: the build environment had no key, and `evaluation/usage_report.md` states t
 The media cache was transcribed in the development session by Claude (vision) using the same
 JSON schema as `prompts/media_extraction.md`. Delete a file in `cache/media/` to have
 `media.py` re-extract it through the API.
+
+## Robustness and security
+
+* **Untrusted evidence.** SQL runs in a sandboxed in-memory SQLite: no ATTACH, PRAGMA or
+  extensions. Manifest paths must stay inside `dataset/evidence/`. Corrupt or oversized
+  files are skipped with a warning instead of aborting the run.
+* **Untrusted text.** Request text and artifact text are delimited and treated as data, and
+  model answers must match a strict schema. A model "delete" is vetoed when the request
+  explicitly says to keep the account.
+* **Edge-case requests.** All of these are handled:
+  * timestamps in any ISO form are normalised to UTC;
+  * a missing `audit_at` falls back to `reported_at`;
+  * unknown emails are matched only on the exact address and its hash;
+  * a reused email prefers its current owner;
+  * duplicate or blank case ids are skipped;
+  * empty request text is not a deletion.
+* **Unknown states.** An unknown restore status, PII exposure or a missing retained record is
+  never cited as proof in a COMPLETE answer.
+* Details: `docs/SECURITY.md`. Warnings print to stderr; on this dataset the run prints none.
 
 ## Reports
 

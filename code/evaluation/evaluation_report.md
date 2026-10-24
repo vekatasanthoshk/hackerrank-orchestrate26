@@ -141,7 +141,17 @@ on the output (`code/tests/test_pipeline.py` automates the contract and determin
 
 ## Automated tests
 
-`python3 -m unittest discover -s code/tests -v` runs 15 tests in ~3 s: all six log dialects,
+`python3 -m unittest discover -s code/tests -v` runs 32 tests in ~6 s. `test_robustness.py`
+(17 tests) attacks each guard listed in `docs/SECURITY.md`:
+* SQL `ATTACH`, `PRAGMA` and hostile table names;
+* path traversal, bad ids, corrupt, missing and badly timestamped manifest rows;
+* injected keys and ids in model output;
+* a prompt-injection attempt that tries to force DELETION;
+* malformed model answers and empty text;
+* unknown states that must never count as proof;
+* unknown and upper-case emails, timezone offsets, an invalid `audit_at`, and duplicate or blank case ids.
+
+`test_pipeline.py` (15 tests) covers all six log dialects,
 the sha256 email-hash rule for all 850 users, identifier normalisation, historical-email and
 decoy resolution, state interpretation (404s, hits, enabled flows, restore decisions,
 free-text PII, `[REDACTED]` bodies, attachment / secondary-identifier categories), multilingual
@@ -168,6 +178,10 @@ Iteration log from development. Sample metrics are shown after each change.
 | 10 | (review) media aliases (statement numbers, file names) were resolved lazily while auditing, so results could depend on case order | alias resolution inside the per-user loop | resolve aliases once when the evidence index is built | output unchanged |
 | 11 | (review) an earlier *non-deletion* request of the same person could claim resources in episode scoping; intent stats counted repeat texts | scoping used every earlier request | only earlier deletion requests close an episode; intent memoised per distinct text (375 texts / 518 requests) | output unchanged |
 | 12 | (review) a model refusal or non-JSON answer would have raised | no guard | refusals / unparseable answers / SDK errors fall back to the rule classifier; failed vision calls are never cached | — |
+| 13 | (security) evidence SQL executed unrestricted (`ATTACH` could create files), manifest paths unchecked, cache names from `file_id` | trusted-input assumptions | SQLite authorizer sandbox, quoted identifiers, path containment, `file_id` allow-list; see `docs/SECURITY.md` S1–S4 | output unchanged |
+| 14 | (security) prompt injection via request or artifact text | free-form prompts and answers | delimited data blocks, strict answer schema, rule veto on model DELETION, validated media records | output unchanged |
+| 15 | (robustness) one corrupt file, an offset timestamp, an unknown email or a duplicate case id would crash or mis-order a run | no input validation | per-file isolation, UTC normalisation everywhere, unknown-email path, duplicate skipping, atomic output | output unchanged |
+| 16 | (robustness) a COMPLETE answer could cite a file that only shows a backup / flow / exposure as *unknown*, or skip a missing retained record silently | policy returned no proof flag | `Policy.evaluate` returns `proven`; unproven checks stay in INCOMPLETE plans but are never cited as proof | output unchanged |
 
 Decoys and grounding: deletion-worker activity rows (`DELETE_RECORD … SUCCESS`) are never
 treated as proof of state (721 FAILED / 376 PARTIAL claims exist), and identity is never

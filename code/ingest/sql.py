@@ -25,12 +25,47 @@ TABLE_SYSTEM = {
 }
 
 
+# Evidence SQL is untrusted input that we *execute*. The authorizer limits it to
+# building and reading in-memory tables: no ATTACH (which would create files on
+# disk), no PRAGMA other than harmless ones, no extension loading, no triggers or views.
+_ALLOWED_PRAGMAS = {"foreign_keys", "table_info"}
+_DENY = {sqlite3.SQLITE_ATTACH, sqlite3.SQLITE_DETACH, sqlite3.SQLITE_CREATE_TRIGGER,
+         sqlite3.SQLITE_CREATE_TEMP_TRIGGER, sqlite3.SQLITE_CREATE_VIEW, sqlite3.SQLITE_CREATE_TEMP_VIEW,
+         sqlite3.SQLITE_CREATE_VTABLE, sqlite3.SQLITE_ALTER_TABLE}
+
+
+def _authorizer(action, arg1, arg2, dbname, source):
+    if action in _DENY:
+        return sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_PRAGMA and (arg1 or "").lower() not in _ALLOWED_PRAGMAS:
+        return sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_FUNCTION and (arg2 or "").lower() in ("load_extension", "readfile", "writefile"):
+        return sqlite3.SQLITE_DENY
+    return sqlite3.SQLITE_OK
+
+
+def _quote_ident(name):
+    return '"' + str(name).replace('"', '""') + '"'
+
+
 def parse_sql(path, file_id, captured_at):
-    text = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8-sig") as fh:
+        text = fh.read()
     m = re.search(r"Captured at:\s*(\S+)", text)
     header_ts = m.group(1) if m else captured_at
     con = sqlite3.connect(":memory:")
+    try:
+        return _read_snapshot(con, text, header_ts, file_id, captured_at)
+    finally:
+        con.close()
+
+
+def _read_snapshot(con, text, header_ts, file_id, captured_at):
+    con.set_authorizer(_authorizer)
+    if hasattr(con, "enable_load_extension"):
+        con.enable_load_extension(False)
     con.executescript(text)
+    con.set_authorizer(None)
     con.row_factory = sqlite3.Row
     tables = [r[0] for r in con.execute("select name from sqlite_master where type='table'")]
     scope = {}
@@ -40,11 +75,15 @@ def parse_sql(path, file_id, captured_at):
     for table in tables:
         if table == "snapshot_scope":
             continue
-        for row in con.execute(f'select * from "{table}"'):
+        for row in con.execute(f"select * from {_quote_ident(table)}"):
             rec = dict(row)
             if "record_json" in rec:
-                payload = json.loads(rec.pop("record_json"))
-                rec.update(flatten(payload))
+                try:
+                    payload = json.loads(rec.pop("record_json") or "{}")
+                except ValueError:
+                    payload = {}
+                if isinstance(payload, dict):
+                    rec.update(flatten(payload))
             rid = rec.get("resource_id")
             if not rid:
                 continue
@@ -60,5 +99,4 @@ def parse_sql(path, file_id, captured_at):
             if rec.get("source_resource_id"):  # search documents point at their source account
                 obs.links.add(rec["source_resource_id"])
             out.append(obs)
-    con.close()
     return out

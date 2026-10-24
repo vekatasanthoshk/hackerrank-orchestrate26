@@ -71,6 +71,35 @@ LINK_FIELDS = {
 
 NULLS = {None, "", "null", "None", "NULL", "-", "—", "[REDACTED]", "no direct identifier"}
 
+SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,128}$")
+
+
+def ts_norm(value):
+    """Normalise an ISO-8601 timestamp to ``YYYY-MM-DDTHH:MM:SSZ`` (UTC) so that plain
+    string comparison orders times correctly. Accepts offsets (``+00:00``, ``+0530``),
+    fractional seconds, a space separator, or a bare date. Unparseable input is
+    returned unchanged (callers treat it as opaque)."""
+    from datetime import datetime, timezone
+
+    if value is None:
+        return value
+    s = str(value).strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", s):
+        return s
+    t = s.replace(" ", "T", 1)
+    if t.endswith("Z"):
+        t = t[:-1] + "+00:00"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", t):
+        t += "T00:00:00+00:00"
+    t = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", t)
+    try:
+        dt = datetime.fromisoformat(t)
+    except ValueError:
+        return s
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 def system_for(resource_id):
     for prefix, system in PREFIX_SYSTEM:
@@ -163,19 +192,25 @@ def make_obs(file_id, captured_at, observed_at, resource_id, exists, rec=None, *
     category = category or SYSTEM_CATEGORY.get(system_id, "UNKNOWN")
     if idents is None:
         idents = collect_idents(rec)
+    captured_at = ts_norm(captured_at)
     return Observation(
-        file_id=file_id, captured_at=captured_at, observed_at=observed_at or captured_at,
+        file_id=file_id, captured_at=captured_at, observed_at=ts_norm(observed_at) or captured_at,
         system_id=system_id, resource_id=resource_id, category=category, exists=bool(exists),
         exposed=exposed, active=active, idents=set(idents), replica=replica, source=source,
     )
 
 
-def flatten(d, prefix=""):
+MAX_DEPTH = 32  # nesting limit for untrusted JSON payloads
+
+
+def flatten(d, depth=0):
     """Flatten nested dicts (e.g. profile / document sub-objects) into one level."""
     out = {}
+    if depth > MAX_DEPTH:
+        return out
     for k, v in d.items():
         if isinstance(v, dict):
-            out.update(flatten(v))
+            out.update(flatten(v, depth + 1))
         else:
             out[k] = v
     return out
@@ -222,7 +257,7 @@ def interpret(system_id, rec):
     if rt:
         category = rt if rt not in ("DATA_FLOW",) else None
 
-    if system_id == "analytics_platform":
+    if system_id in ("analytics_platform", "telemetry_service"):
         attrib = any(not is_null(r.get(k)) for k in
                      ("email", "phone", "email_hash", "user_id", "customer_reference", "matched_value"))
         if "direct_identifiers" in r:
@@ -272,4 +307,12 @@ def interpret(system_id, rec):
             active = truthy(r["eligible"]) and not truthy(r.get("deletion_block"))
         elif result in ("active", "blocked"):
             active = result == "active"
+    elif system_id not in ("security_service", "legal_service"):
+        # any other system (cache, e-mail delivery logs, exports, search, accounts, ...):
+        # exposed while a direct identifier field or free text still carries one
+        exposed = direct_exposed(r)
+        if result == "identifiable":
+            exposed = True
+        if result in ("redacted", "anonymized"):
+            exposed = False
     return exists, exposed, active, category

@@ -26,9 +26,13 @@ def cost(model, tin, tout):
 
 
 def main():
-    run = json.load(open(os.path.join(CODE, "cache", "last_run.json")))
+    with open(os.path.join(CODE, "cache", "last_run.json"), encoding="utf-8") as fh:
+        run = json.load(fh)
     ledger_path = os.path.join(CODE, "cache", "usage_ledger.jsonl")
-    rows = [json.loads(l) for l in open(ledger_path)] if os.path.exists(ledger_path) else []
+    rows = []
+    if os.path.exists(ledger_path):
+        with open(ledger_path, encoding="utf-8") as fh:
+            rows = [json.loads(line) for line in fh if line.strip()]
     this_run = [r for r in rows if r["run_id"] == run["run_id"]]
     earlier_media = [r for r in rows if r["run_id"] != run["run_id"] and r["purpose"] == "media_extraction"]
     n = max(run["requests"], 1)
@@ -98,7 +102,8 @@ def main():
               f"(~${cost('claude-haiku-5-5', texts * 500, texts * 150) / n:.6f} per request over {run['requests']} requests).",
               ""]
     out = os.path.join(HERE, "usage_report.md")
-    open(out, "w", encoding="utf-8").write("\n".join(L))
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(L))
     print("wrote", out)
 
 

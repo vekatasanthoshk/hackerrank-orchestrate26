@@ -8,7 +8,9 @@ ROW_RE = re.compile(r"^-\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*([A-Z_]+)\s*\|
 
 def parse_text(path, file_id, captured_at):
     out = []
-    for line in open(path, encoding="utf-8"):
+    with open(path, encoding="utf-8-sig", errors="replace") as fh:
+        lines = fh.readlines()
+    for line in lines:
         m = ROW_RE.match(line.strip())
         if not m:
             continue

@@ -62,24 +62,33 @@ class Policy:
         return action
 
     def evaluate(self, rs):
-        """Return (finding, remediation, verification) tuples (op, state) or None for one resource."""
+        """Return (finding, remediation, verification, proven) for one resource.
+
+        finding / remediation / verification are (operation, state) tuples or None.
+        ``proven`` says whether the cited evidence actually establishes the compliant
+        state; an unproven check is still part of a remediation plan but can never be
+        cited as proof in a COMPLETE case (unknown restore status, unknown exposure,
+        or a retained record that is missing).
+        """
         t = self.treatment(rs.category)
         if t is None:
-            return None, None, None
-        violation = False
+            return None, None, None, False
         if t == "DELETE":
-            violation = bool(rs.exists)
-        elif t in ("REDACT", "ANONYMIZE"):
-            violation = bool(rs.exists) and bool(rs.exposed)
+            if rs.exists:
+                return FIND[t], FIX[t], VERIFY[t], True
+            return None, None, VERIFY[t], True
+        if t in ("REDACT", "ANONYMIZE"):
             if not rs.exists:
-                # the record is already gone entirely: verify its absence instead
-                return None, None, VERIFY["DELETE"]
-        elif t in ("BLOCK", "DISABLE"):
-            violation = bool(rs.exists) and rs.active is True
-        elif t == "RETAIN":
-            if not rs.exists:
-                return None, None, None  # nothing to verify as retained
-            return None, None, VERIFY["RETAIN"]
-        if violation:
-            return FIND[t], FIX[t], VERIFY[t]
-        return None, None, VERIFY[t]
+                return None, None, VERIFY["DELETE"], True  # gone entirely: verify absence
+            if rs.exposed:
+                return FIND[t], FIX[t], VERIFY[t], True
+            return None, None, VERIFY[t], rs.exposed is False
+        if t in ("BLOCK", "DISABLE"):
+            if rs.exists and rs.active is True:
+                return FIND[t], FIX[t], VERIFY[t], True
+            # gone, or explicitly disabled / blocked; unknown flags are not proof
+            return None, None, VERIFY[t], (not rs.exists) or rs.active is False
+        if t == "RETAIN":
+            # required final state is "present"; a missing retained record cannot be proven
+            return None, None, VERIFY["RETAIN"], bool(rs.exists)
+        return None, None, None, False

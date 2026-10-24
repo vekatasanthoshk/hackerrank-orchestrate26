@@ -31,7 +31,7 @@ PHASE_RANK = {"FINDING": 0, "REMEDIATION": 1, "VERIFICATION": 2}
 
 
 def main(path):
-    errors = []
+    errors, warnings = [], []
     with open(os.path.join(DS, "deletion_requests.csv"), encoding="utf-8") as fh:
         reqs = {r["case_id"]: r for r in csv.DictReader(fh)}
     with open(os.path.join(DS, "evidence_files.csv"), encoding="utf-8") as fh:
@@ -69,8 +69,10 @@ def main(path):
             errors.append(f"{cid}: bad status {status}")
         if status == "NOT_APPLICABLE" and steps:
             errors.append(f"{cid}: NOT_APPLICABLE must have []")
-        if status != "NOT_APPLICABLE" and not steps:
-            errors.append(f"{cid}: {status} with no steps")
+        if status == "INCOMPLETE" and not steps:
+            errors.append(f"{cid}: INCOMPLETE with no steps")
+        if status == "COMPLETE" and not steps:
+            warnings.append(f"{cid}: COMPLETE with no evidence-backed check (no records found for the subject)")
         audit_at = reqs.get(cid, {}).get("audit_at", "")
         last_phase = -1
         for i, s in enumerate(steps, 1):
@@ -100,9 +102,11 @@ def main(path):
                     errors.append(f"{cid}: unknown evidence id {ev}")
                 elif when > audit_at:
                     errors.append(f"{cid}: cites {ev} captured {when} after audit_at {audit_at}")
-    print(f"{path}: {len(rows)} rows, {len(errors)} problems")
+    print(f"{path}: {len(rows)} rows, {len(errors)} problems, {len(warnings)} warnings")
     for e in errors[:50]:
         print("  -", e)
+    for w in warnings[:20]:
+        print("  ~", w)
     return 1 if errors else 0
 
 

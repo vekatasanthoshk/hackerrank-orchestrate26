@@ -80,7 +80,7 @@ def parse_line(line):
 def parse_log(path):
     """Return a list of merged trace records (dicts) for one log file."""
     lines = []
-    with open(path, encoding="utf-8") as fh:
+    with open(path, encoding="utf-8-sig", errors="replace") as fh:
         for raw in fh:
             rec = parse_line(raw)
             if rec:

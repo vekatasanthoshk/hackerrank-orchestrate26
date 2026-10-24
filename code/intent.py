@@ -65,18 +65,26 @@ def rule_intent(text):
 
 
 def _load_cache():
-    if os.path.exists(CACHE):
-        return json.load(open(CACHE, encoding="utf-8"))
-    return {}
+    try:
+        with open(CACHE, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    # keep only well-formed entries (a tampered cache must not inject labels)
+    return {k: v for k, v in data.items() if isinstance(v, dict) and v.get("intent") in ("DELETION", "NOT_DELETION")}
 
 
 def _save_cache(cache):
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
-    json.dump(cache, open(CACHE, "w", encoding="utf-8"), indent=1, ensure_ascii=False, sort_keys=True)
+    tmp = CACHE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(cache, fh, indent=1, ensure_ascii=False, sort_keys=True)
+    os.replace(tmp, CACHE)
 
 
 def _prompt():
-    text = open(PROMPT, encoding="utf-8").read()
+    with open(PROMPT, encoding="utf-8") as fh:
+        text = fh.read()
     system = text.split("## System", 1)[1].split("## User", 1)[0].strip()
     user = text.split("## User", 1)[1].strip()
     return system, user
@@ -86,10 +94,10 @@ def anthropic_errors():
     """SDK error classes (empty tuple when the SDK is not installed)."""
     try:
         import anthropic
-
-        return (anthropic.APIStatusError, anthropic.APIConnectionError, anthropic.AuthenticationError)
     except ImportError:
         return ()
+    names = ("APIStatusError", "APIConnectionError", "AuthenticationError")
+    return tuple(getattr(anthropic, n) for n in names if isinstance(getattr(anthropic, n, None), type))
 
 
 def _llm_intent(text):
@@ -97,9 +105,11 @@ def _llm_intent(text):
 
     client = anthropic.Anthropic()
     system, user = _prompt()
+    # the closing delimiter cannot be smuggled in to break out of the data block
+    safe = text.replace("</request_text>", "</request_text_>")[:4000]
     resp = client.messages.create(model=MODEL, max_tokens=1024, system=system,
                                   output_config={"effort": "low"},
-                                  messages=[{"role": "user", "content": user.replace("{request_text}", text)}])
+                                  messages=[{"role": "user", "content": user.replace("{request_text}", safe)}])
     ledger.record("intent", MODEL, resp.usage)
     if resp.stop_reason == "refusal":
         raise ValueError("model refused")
@@ -108,8 +118,9 @@ def _llm_intent(text):
     if not m:
         raise ValueError("no JSON in model answer")
     data = json.loads(m.group(0))
-    label = "DELETION" if data.get("intent") == "DELETION" else "NOT_DELETION"
-    return label, data.get("reason", "")
+    if not isinstance(data, dict) or data.get("intent") not in ("DELETION", "NOT_DELETION"):
+        raise ValueError("unexpected answer schema")
+    return data["intent"], str(data.get("reason", ""))[:200]
 
 
 class IntentClassifier:
@@ -121,7 +132,11 @@ class IntentClassifier:
 
     def classify(self, text):
         """Return (is_deletion, source, reason)."""
+        text = text or ""
         if text in self.memo:
+            return self.memo[text]
+        if not text.strip():
+            self.memo[text] = (False, "rules", "empty request text")
             return self.memo[text]
         key = hashlib.sha256(text.encode()).hexdigest()
         rule_label, rule_reason = rule_intent(text)
@@ -134,7 +149,7 @@ class IntentClassifier:
                 label, reason = _llm_intent(text)
                 src = f"llm:{MODEL}"
                 self.stats["llm_calls"] += 1
-                self.cache[key] = {"intent": label, "reason": reason, "source": src, "text": text[:160]}
+                self.cache[key] = {"intent": label, "reason": reason, "source": src}  # no raw text stored
                 _save_cache(self.cache)
             except (anthropic_errors() + (ValueError, KeyError, AttributeError)) as exc:
                 # API / network errors, refusals and unparseable answers fall back to the rules
@@ -144,6 +159,10 @@ class IntentClassifier:
             label, src, reason = rule_label, "rules", rule_reason
             self.stats["rule_only"] += 1
         if label != rule_label:
-            self.stats["disagreements"].append((text[:80], label, rule_label))
+            self.stats["disagreements"].append((key[:12], label, rule_label))
+            if label == "DELETION" and rule_reason.startswith("non-deletion cue"):
+                # destructive action needs both layers: an explicit "keep / do not delete"
+                # cue overrides a model DELETION (guards against prompt injection too)
+                label, src, reason = "NOT_DELETION", src + "+rules-veto", rule_reason
         self.memo[text] = (label == "DELETION", src, reason)
         return self.memo[text]
