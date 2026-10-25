@@ -11,7 +11,7 @@
       "email": "bluepeakco@outlook.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; created 26 Apr 02:00; no restore block shown",
+      "status": "Archive; region ap-southeast-1; created 26 Apr 02:00",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
@@ -25,7 +25,7 @@
       "email": "miller.logistics@company.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; created 26 Apr 02:00; no restore block shown",
+      "status": "Archive; region us-west-2; created 26 Apr 02:00",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
@@ -39,7 +39,7 @@
       "email": "areed1433@gmail.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; checksum verified; retention end 26 Jul 2026; restores completing; no restore block shown",
+      "status": "Archive; region eu-west-1; created 26 Apr 2026 02:00 UTC; checksum verified; last drill 29 Mar 2026; retention end 26 Jul 2026",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
@@ -53,12 +53,12 @@
       "email": "summit-retail@company.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; restored 25 Apr; no restore block shown",
+      "status": "Archive; region us-east-1; created 26 Apr 02:00; activity feed: restored 25 Apr, completed",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
       "observed_at": "2026-04-29T09:00:00Z"
     }
   ],
-  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md; re-verified against the image 2026-10-25: status text limited to what the screen shows)"
 }

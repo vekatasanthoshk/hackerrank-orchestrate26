@@ -5,7 +5,7 @@
   "records": [
     {
       "resource_id": null,
-      "system": "export_service",
+      "system": null,
       "aliases": [
         "NST-2026-0718-1842",
         "ORD-20261260"
@@ -21,5 +21,5 @@
       "observed_at": "2026-07-18T11:00:00Z"
     }
   ],
-  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md; re-verified against the PDF 2026-10-25: the statement names no owning system, so system is null)"
 }

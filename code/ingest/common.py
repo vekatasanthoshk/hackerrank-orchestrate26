@@ -61,17 +61,20 @@ RESOURCE_RE = re.compile(r"^(?:audit_record|data_flow|legal_hold|tombstone|analy
 DIRECT_FIELDS = {
     "email", "phone", "email_hash", "full_name", "name", "display_name",
     "requester_email", "requester_name", "requester_phone",
-    "customer_email", "owner_email", "owner_phone", "matched_value",
+    "customer_email", "owner_email", "owner_phone", "matched_value", "uploaded_by",
 }
-# Fields that only carry linkage keys (identify the subject, are not PII on their own).
+# Fields that only carry linkage keys (identify the subject, are not PII on their own):
+# the key a read-back or query was made with, or the subject a connector selects.
 LINK_FIELDS = {
     "lookup_key", "match_key", "correlation_key", "subject_key", "scan_key", "owner_key",
     "subject_ref", "subject_reference", "customer_reference", "user_id", "selector",
+    "lookup_value", "subject_selector", "query",
 }
 
 NULLS = {None, "", "null", "None", "NULL", "-", "—", "[REDACTED]", "no direct identifier"}
 
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,128}$")
+HASH_RE = re.compile(r"[0-9a-fA-F]{64}")
 
 
 def ts_norm(value):
@@ -216,6 +219,21 @@ def flatten(d, depth=0):
     return out
 
 
+FILE_NAME_RE = re.compile(r"\.(?:pdf|png|jpe?g|gif|heic|tiff?|docx?|xlsx?|csv|txt|zip)$", re.I)
+ATTACHMENT_FIELDS = ("collection_name", "collection", "storage_class", "record_type", "data_category", "table")
+
+
+def is_attachment(r):
+    """A support record is an attachment (rule_06, DELETE) rather than a message (rule_05, REDACT)
+    when the record itself says it is a stored file: an attachment collection, storage class or
+    record type, an attachment event in its trace, or a file name with a file extension."""
+    if any("attachment" in str(r.get(k) or "").lower() for k in ATTACHMENT_FIELDS):
+        return True
+    if any(e and str(e).startswith("attachment") for e in r.get("events") or []):
+        return True
+    return any(FILE_NAME_RE.search(str(r.get(k) or "").strip()) for k in ("file", "file_name", "filename"))
+
+
 ABSENT_WORDS = {"not_found", "absent", "deleted", "miss", "404", "purged", "expired", "removed"}
 PRESENT_WORDS = {"found", "present", "hit", "200", "active", "identifiable", "redacted",
                  "anonymized", "ready", "blocked", "disabled", "retained", "live"}
@@ -267,22 +285,25 @@ def interpret(system_id, rec):
         if result in ("anonymized",):
             attrib = False
         exposed = attrib
-        # A contact lookup keyed by an email hash is a secondary-identifier copy, not a profile.
-        events = r.get("events") or []
-        if any(e and e.startswith("contact_lookup") for e in events):
+        # A record whose only identifier is a hashed email is a copy of a derived identifier
+        # (rule_02 SECONDARY_IDENTIFIER, DELETE), not a profile that anonymisation could keep:
+        # removing the hash leaves nothing. One record in the dataset has this shape
+        # (analytics_9914, sample case_12, where the gold answer deletes it).
+        hashed = any(HASH_RE.fullmatch(str(r.get(k) or "").strip()) for k in ("email_hash", "correlation_key"))
+        direct = any(not is_null(r.get(k)) for k in
+                     ("email", "phone", "user_id", "customer_reference", "full_name", "name", "matched_value"))
+        if hashed and not direct:
             category = "SECONDARY_IDENTIFIER"
     elif system_id == "support_platform":
         exp = direct_exposed({k: r.get(k) for k in
                               ("requester_email", "requester_name", "requester_phone", "matched_value",
-                               "email", "phone", "name", "full_name", "message_text")})
+                               "email", "phone", "name", "full_name", "uploaded_by", "message_text")})
         if result == "identifiable":
             exp = True
         if result == "redacted" or str(r.get("message_text", "")).strip() == "[REDACTED]":
             exp = False
         exposed = exp
-        events = r.get("events") or []
-        fname = str(r.get("file") or "")
-        if any(e and e.startswith("attachment") for e in events) or fname.endswith(".pdf"):
+        if is_attachment(r):
             category = "SUPPORT_ATTACHMENT"
         if str(r.get("service", "")) == "support_replica":
             category = "SECONDARY_IDENTIFIER"

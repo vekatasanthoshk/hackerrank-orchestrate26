@@ -96,8 +96,25 @@ class Interpretation(unittest.TestCase):
 
     def test_categories(self):
         self.assertEqual(interpret("support_platform", {"events": ["attachment_pii_scan"]})[3], "SUPPORT_ATTACHMENT")
-        self.assertEqual(interpret("analytics_platform", {"events": ["contact_lookup_completed"]})[3],
+        # attachment vs message is read from the record itself, not only from event names
+        for rec in ({"collection_name": "ticket_attachments"}, {"storage_class": "ticket_attachment"},
+                    {"file_name": "delivery_confirmation_05.pdf"}, {"file": "scan.JPG"}):
+            self.assertEqual(interpret("support_platform", rec)[3], "SUPPORT_ATTACHMENT", rec)
+        self.assertIsNone(interpret("support_platform", {"message_text": "see attached invoice", "file_name": None})[3])
+        # an analytics record keyed only by a hashed email is a secondary-identifier copy (rule_02)
+        h = "44a65154bfd8e408852578fbd76813d094d1944f255ac1769ee81ba90492f10e"
+        self.assertEqual(interpret("analytics_platform", {"correlation_key": h, "email_opt_in": "true"})[3],
                          "SECONDARY_IDENTIFIER")
+        self.assertIsNone(interpret("analytics_platform", {"correlation_key": h, "user_id": "user_3"})[3])
+
+    def test_identifier_fields_seen_in_the_evidence(self):
+        # read-back keys, connector selectors and uploaders link records to their subject
+        from ingest.common import collect_idents, direct_exposed
+
+        rec = {"lookup_value": "a@b.co", "subject_selector": "user_7", "query": "c@d.co", "uploaded_by": "e@f.co"}
+        self.assertEqual(collect_idents(rec), {"a@b.co", "user_7", "c@d.co", "e@f.co"})
+        self.assertFalse(direct_exposed({"lookup_value": "a@b.co"}))  # a lookup key is not stored PII
+        self.assertTrue(interpret("support_platform", {"uploaded_by": "e@f.co"})[1])
 
 
 class Intent(unittest.TestCase):
@@ -142,6 +159,47 @@ class PolicyAndPlanner(unittest.TestCase):
         self.assertEqual([g[1] for g in got], ["search_052", "analytics_2034", "support_864", "data_flow_9522",
                                                "analytics_2034", "account_4248", "data_flow_9522"])
         self.assertEqual([g[0] for g in got], list(range(1, 8)))
+
+
+class StateCrossCheck(unittest.TestCase):
+    """Latest observation wins, but not silently: conflicts and unknowns are handled explicitly."""
+
+    def _state(self, *obs, at="2026-09-30T00:00:00Z"):
+        from ingest.common import make_obs
+        from state import EvidenceIndex
+
+        class NoIds:
+            def owners(self, idents):
+                return set()
+
+        made = [make_obs(f, c, t, "backup_1" if s == "backup" else "support_1", e, {}, exposed=x, active=a,
+                         replica=r, source="sql:" + r if r else "log")
+                for f, c, t, e, x, a, r, s in obs]
+        rid = made[0].resource_id
+        return EvidenceIndex(made, [], NoIds()).state(rid, at)
+
+    def test_same_instant_conflict_counts_as_present_and_is_reported(self):
+        t = "2026-09-10T10:00:00Z"
+        rs = self._state(("evidence_01", t, t, False, None, None, "", "support"),
+                         ("evidence_02", t, t, True, True, None, "", "support"))
+        self.assertTrue(rs.exists)
+        self.assertTrue(any("different results" in n for n in rs.notes))
+
+    def test_unknown_latest_keeps_last_stated_value(self):
+        rs = self._state(("evidence_01", "2026-09-01T00:00:00Z", "2026-09-01T00:00:00Z", True, None, False, "", "backup"),
+                         ("evidence_02", "2026-09-05T00:00:00Z", "2026-09-05T00:00:00Z", True, None, None, "", "backup"))
+        self.assertIs(rs.active, False)        # restore was stated blocked; a later silent screen keeps that
+        self.assertEqual(rs.evidence_id, "evidence_02")
+        rs = self._state(("evidence_01", "2026-09-01T00:00:00Z", "2026-09-01T00:00:00Z", True, True, None, "", "support"),
+                         ("evidence_02", "2026-09-05T00:00:00Z", "2026-09-05T00:00:00Z", True, None, None, "", "support"))
+        self.assertIs(rs.exposed, True)
+
+    def test_replica_copy_not_covered_by_later_primary_read_is_reported(self):
+        rs = self._state(("evidence_01", "2026-09-01T00:00:00Z", "2026-09-01T00:00:00Z", True, True, None,
+                          "customer_profiles_failover_replica", "support"),
+                         ("evidence_02", "2026-09-05T00:00:00Z", "2026-09-05T00:00:00Z", False, None, None, "", "support"))
+        self.assertFalse(rs.exists)            # latest observation still wins ...
+        self.assertTrue(any("does not cover replicas" in n for n in rs.notes))  # ... but not silently
 
 
 class EndToEnd(unittest.TestCase):

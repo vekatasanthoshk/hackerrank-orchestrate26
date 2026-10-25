@@ -11,20 +11,29 @@ Steps
   3. Latest state: per (system_id, resource_id) take the most recent visible
      observation (observed_at, then captured_at). Several copies inside that
      same file (primary + replicas) are merged: any surviving copy keeps the
-     record present / exposed / active.
+     record present / exposed / active. A latest read-back that cannot show
+     exposure or a restore / sync flag (unknown) keeps the last stated value.
+  4. Cross-check: the latest observation is compared with the other visible
+     copies. Two files that read the same record at the same instant with
+     different results, or a replica copy last seen present that a later
+     primary-only read-back does not cover, are recorded in ``notes`` and
+     printed as warnings; same-instant conflicts resolve to "present".
 Activity rows other than catalog links are claims and never set state.
 """
 from collections import defaultdict
 
+from ingest.common import SYSTEM_CATEGORY
+
 
 class ResourceState:
     __slots__ = ("system_id", "resource_id", "category", "exists", "exposed", "active",
-                 "evidence_id", "observed_at", "history")
+                 "evidence_id", "observed_at", "history", "notes")
 
     def __init__(self, system_id, resource_id):
         self.system_id = system_id
         self.resource_id = resource_id
         self.history = []
+        self.notes = []
 
     def __repr__(self):
         return (f"<{self.system_id}/{self.resource_id} {self.category} exists={self.exists} "
@@ -48,6 +57,8 @@ class EvidenceIndex:
                 hit = next((alias_map[a] for a in sorted(o.aliases) if a in alias_map), None)
                 if hit:
                     o.resource_id, o.system_id = hit["resource_id"], hit["system_id"]
+                    if o.category in (None, "", "UNKNOWN"):
+                        o.category = SYSTEM_CATEGORY.get(o.system_id, "UNKNOWN")
         for o in self.obs:
             if o.resource_id:
                 self.by_resource[o.resource_id].append(o)
@@ -107,14 +118,36 @@ class EvidenceIndex:
                 and (o.source.startswith("sql") or o.observed_at == latest.observed_at)]
         rs = ResourceState(latest.system_id, resource_id)
         rs.category = _pick_category(visible)
+        rs.history = sorted(visible, key=lambda o: (o.observed_at, o.captured_at))
+        # other files that read the record at the very same instant
+        clash = [o for o in visible if o.file_id != latest.file_id and o.observed_at == latest.observed_at]
+        if any(o.exists != latest.exists for o in clash):
+            rs.notes.append(f"{latest.file_id} and {', '.join(sorted({o.file_id for o in clash}))} read "
+                            f"{resource_id} at {latest.observed_at} with different results; counted as present")
+            same = same + clash
         rs.exists = any(o.exists for o in same)
         exp = [o.exposed for o in same if o.exposed is not None and o.exists]
         rs.exposed = any(exp) if exp else None
         act = [o.active for o in same if o.active is not None]
         rs.active = any(act) if act else None
+        if rs.exists:
+            # the latest read-back cannot show it: the last stated value still holds
+            in_same = {id(o) for o in same}
+            earlier = [o for o in rs.history if id(o) not in in_same and o.exists]
+            if rs.exposed is None:
+                rs.exposed = next((o.exposed for o in reversed(earlier) if o.exposed is not None), None)
+            if rs.active is None:
+                rs.active = next((o.active for o in reversed(earlier) if o.active is not None), None)
+        if not rs.exists:
+            # a later primary-only read-back does not speak for replica copies seen earlier
+            drift = [o for o in rs.history if o.exists and o.file_id != latest.file_id
+                     and any(w in o.replica for w in ("replica", "failover"))]
+            if drift and not latest.replica:
+                rs.notes.append(f"{resource_id}: replica copy last seen present in {drift[-1].file_id} "
+                                f"({drift[-1].replica}); the later absent read-back {latest.file_id} "
+                                f"does not cover replicas")
         rs.evidence_id = latest.file_id
         rs.observed_at = latest.observed_at
-        rs.history = sorted(visible, key=lambda o: (o.observed_at, o.captured_at))
         return rs
 
 

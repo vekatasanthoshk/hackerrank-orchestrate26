@@ -15,13 +15,13 @@
       "email": "priya.raman@gmail.com",
       "phone": "+91 98765 73142",
       "customer_reference": null,
-      "status": "customer-uploaded attachment, 312 KB",
+      "file_name": "delivery_address_correction.pdf",
+      "status": "attachment properties: file delivery_address_correction.pdf, 312 KB, ticket CS-4827, uploader customer",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
-      "observed_at": "2026-09-12T07:30:00Z",
-      "category": "SUPPORT_ATTACHMENT"
+      "observed_at": "2026-09-12T07:30:00Z"
     }
   ],
-  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md; re-verified against the PDF 2026-10-25: the data category is no longer transcribed, the code derives it from the stated file name)"
 }

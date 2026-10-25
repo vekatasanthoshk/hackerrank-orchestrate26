@@ -73,8 +73,12 @@ def normalize_request(raw):
 
 
 class Auditor:
-    def __init__(self, dataset=DATASET, use_llm=None):
+    def __init__(self, dataset=DATASET, use_llm=None, batch_inference=True, episode_scoping=True):
         self.dataset = dataset
+        # both heuristics were derived from a handful of samples; the flags exist so their
+        # effect can be measured (evaluation/main.py --ablation)
+        self.batch_inference = batch_inference
+        self.episode_scoping = episode_scoping
         self.ids = Identities(dataset)
         self.observations = load_observations(dataset)
         self.activity, self.links = load_activity(dataset)
@@ -94,7 +98,8 @@ class Auditor:
                 with open(path, encoding="utf-8") as fh:
                     requests += list(csv.DictReader(fh))
         requests = [normalize_request(r)[0] for r in requests]
-        self.inferred_accounts = accounts.infer_batch_accounts(requests, self.activity, self.index, self.ids)
+        if self.batch_inference:
+            self.inferred_accounts = accounts.infer_batch_accounts(requests, self.activity, self.index, self.ids)
         self.requests_by_user = {}
         for r in requests:
             for uid in self.ids.users_for_email(r["email"]):
@@ -116,12 +121,17 @@ class Auditor:
         return True
 
     def _catalog_conflict(self, rid, users):
-        """True when a catalog-linked record carries direct identifiers (emails / phones /
-        hashes) and none of them belongs to the subject - e.g. a screenshot of someone else."""
+        """Compare a catalog-linked record with the identifiers printed on the record itself.
+
+        Returns None when they agree (or the record prints none), "other" when the printed
+        emails / phones / hashes belong to a different known user, and "unknown" when they
+        belong to nobody in user_identities.csv."""
         keys = set().union(*(self.ids.keys(u) for u in users)) if users else set()
         printed = {norm(i) for o in self.index.by_resource.get(rid, []) for i in o.idents}
         printed = {k for k in printed if k and not k.startswith("user_")}
-        return bool(printed) and not (printed & keys)
+        if not printed or printed & keys:
+            return None
+        return "other" if self.ids.owners(printed) - set(users) else "unknown"
 
     def audit(self, raw_req, debug=False):
         req, problems = normalize_request(raw_req)
@@ -140,10 +150,15 @@ class Auditor:
             # unknown address: only records carrying this exact email or its hash
             owned.update(self.index.owned_by_keys(self.ids.keys_for_unknown_email(req["email"])))
             problems.append("request email not found in user_identities.csv")
-        for rid, how in owned.items():
-            if how.startswith("catalog:") and self._catalog_conflict(rid, users):
-                problems.append(f"{rid}: data-catalog link to this subject conflicts with the identifiers "
-                                f"printed on the record itself; the catalog link is kept")
+        for rid, how in sorted(owned.items()):
+            conflict = self._catalog_conflict(rid, users) if how.startswith("catalog:") else None
+            if conflict == "other":
+                # the record's own content outweighs the catalog's claim: it is another person's
+                del owned[rid]
+                problems.append(f"{rid}: data-catalog link dropped; the record itself names another known user")
+            elif conflict == "unknown":
+                problems.append(f"{rid}: data-catalog link kept; the record prints identifiers of a person "
+                                f"who is not in user_identities.csv, so no other owner can be shown")
         inferred = self.inferred_accounts.get(req["case_id"])
         if inferred and not any(r.startswith("account_") for r in owned):
             owned[inferred] = "inferred:deletion-batch"
@@ -151,7 +166,8 @@ class Auditor:
         states = []
         # earlier, already-audited deletion requests of the same subject (episode scoping)
         earlier = [r for uid in users for r in self.requests_by_user.get(uid, [])
-                   if r["audit_at"] < req["requested_at"] and self.intent.classify(r["request_text"])[0]]
+                   if r["audit_at"] < req["requested_at"] and self.intent.classify(r["request_text"])[0]
+                   ] if self.episode_scoping else []
         for rid in sorted(owned):
             if not owned[rid].startswith("inferred:") and not self._in_scope(rid, req, earlier):
                 continue
@@ -160,6 +176,7 @@ class Auditor:
                 # Linked, but no read-back visible at audit_at: only a future check is possible.
                 states.append(_Unobserved(rid, self.index))
                 continue
+            problems.extend(rs.notes)
             states.append(rs)
         dbg["states"] = states
         findings, fixes, checks = [], [], []
@@ -168,7 +185,17 @@ class Auditor:
             if f is None and v is None:
                 problems.append(f"no deletion rule for category {rs.category} ({rs.resource_id})")
                 continue
+            if f and owned.get(rs.resource_id, "").startswith("inferred:"):
+                # linked only through a deletion-batch claim: it may schedule a check, never a finding
+                problems.append(f"{rs.resource_id}: linked only by a deletion-batch claim and read back present; "
+                                f"left to verification instead of a finding")
+                f, proven = None, False
             if f:
+                if f[1] == "ACTIVE" and rs.active is None:
+                    # rule_14 / COMPLETE definition: a path counts until evidence shows it closed
+                    problems.append(f"{rs.resource_id}: {'restore' if f[0] == 'REPORT_RESTORE_RISK' else 'sync'} "
+                                    f"status never stated (last read-back {rs.evidence_id}); reported as a "
+                                    f"recreation path until evidence shows it blocked / disabled")
                 findings.append(_step("FINDING", rs, f, rs.evidence_id))
                 fixes.append(_step("REMEDIATION", rs, r, ""))
             if v:

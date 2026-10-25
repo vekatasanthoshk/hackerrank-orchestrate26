@@ -75,7 +75,7 @@ def _call_vision(path, file_id, origin, captured_at):
 # Fields a media record may carry, and their accepted types. Anything else in the
 # model's answer (or in a tampered cache file) is dropped before interpretation.
 _STR_FIELDS = ("resource_id", "system", "full_name", "email", "phone", "customer_reference", "status",
-               "result", "enabled", "restore_allowed", "observed_at", "category")
+               "result", "enabled", "restore_allowed", "observed_at", "file_name", "detail_visible")
 _KNOWN_SYSTEMS = set(SYSTEM_CATEGORY)
 _MAX_RECORDS = 200
 
@@ -102,8 +102,6 @@ def validate_records(data):
         clean["resource_id"] = rid or None
         if clean.get("system") and clean["system"] not in _KNOWN_SYSTEMS:
             clean["system"] = system_for(rid) if rid else None
-        if clean.get("category") and clean["category"] not in SYSTEM_CATEGORY.values():
-            clean["category"] = None
         aliases = rec.get("aliases") if isinstance(rec.get("aliases"), list) else []
         clean["aliases"] = [str(a)[:128] for a in aliases if isinstance(a, (str, int)) and str(a).strip()][:20]
         out.append(clean)
@@ -151,8 +149,10 @@ def media_observations(path, file_id, origin, captured_at):
             if isinstance(flat.get(k), bool):
                 flat[k] = "true" if flat[k] else "false"
         exists, exposed, active, cat = interpret(system, flat)
+        if str(flat.get("detail_visible") or "").lower() == "false":
+            exposed = None  # only referenced: the artifact cannot show whether identifiers remain
         obs = make_obs(file_id, captured_at, rec.get("observed_at") or captured_at,
-                       rid or "", exists, flat, system_id=system, category=rec.get("category") or cat,
+                       rid or "", exists, flat, system_id=system, category=cat,
                        exposed=exposed, active=active, source="media")
         obs.aliases = set(aliases)
         out.append(obs)

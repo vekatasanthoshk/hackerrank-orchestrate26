@@ -216,8 +216,24 @@ class RequestEdgeCases(unittest.TestCase):
         req = dict(self.base, case_id="edge_mkt", email="kwame-mensah@proton.me", audit_at="2026-09-17T09:20:00Z",
                    requested_at="2026-09-14T04:20:00Z", reported_at="2026-09-15T22:20:00Z")
         st, steps, d = self.a.audit(req)
-        self.assertTrue(any("conflicts" in p for p in d["problems"]))
-        self.assertEqual(st, "INCOMPLETE")  # link kept: decision documented in DATA_NOTES.md
+        # the screenshot prints a person who is not in user_identities.csv: link kept, warning printed
+        self.assertTrue(any("link kept" in p for p in d["problems"]))
+        self.assertEqual(st, "INCOMPLETE")
+
+    def test_catalog_link_dropped_when_record_names_another_known_user(self):
+        from main import Auditor
+
+        a = Auditor(use_llm=False)
+        a.prepare()
+        # pretend the catalog had linked Haruka Sato's account (evidence_04, user_11) to user_09
+        for link in a.index.links:
+            if link["resource_id"] == "account_5762":
+                link.update(user_id="user_09", email="kwame-mensah@proton.me")
+        req = dict(self.base, case_id="edge_cat", email="kwame-mensah@proton.me", audit_at="2026-09-30T09:20:00Z",
+                   requested_at="2026-09-14T04:20:00Z", reported_at="2026-09-15T22:20:00Z")
+        st, steps, d = a.audit(req)
+        self.assertNotIn("account_5762", {s["resource_id"] for s in steps})
+        self.assertTrue(any("link dropped" in p for p in d["problems"]))
 
     def test_unknown_email(self):
         st, steps, d = self.a.audit(dict(self.base, email="nobody-at-all@example.org"))

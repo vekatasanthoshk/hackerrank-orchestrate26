@@ -29,12 +29,13 @@
       "email": null,
       "phone": null,
       "customer_reference": "user_11",
-      "status": "Customer replied to CS-8538 (24 Sep)",
+      "status": "listed under Customer details > Support as 'CS-8538 · support_9538'; activity: created 28 Aug, customer replied 24 Sep",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
+      "detail_visible": false,
       "observed_at": "2026-09-26T11:00:00Z"
     }
   ],
-  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md; re-verified against the image 2026-10-25: support_9538 is only referenced, its own fields are not shown)"
 }

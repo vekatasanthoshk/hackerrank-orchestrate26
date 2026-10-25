@@ -9,11 +9,12 @@
       "aliases": [
         "delivery_confirmation_19.pdf"
       ],
+      "file_name": "delivery_confirmation_19.pdf",
       "full_name": null,
       "email": null,
       "phone": null,
       "customer_reference": null,
-      "status": "Standard v3, uploader support-service, modified 12 Feb 2026 18:42 UTC",
+      "status": "684 KB; Standard; v3; content type application/pdf; uploader support-service; modified 12 Feb 2026 18:42 UTC",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
@@ -25,16 +26,119 @@
       "aliases": [
         "delivery_confirmation_20.pdf"
       ],
+      "file_name": "delivery_confirmation_20.pdf",
       "full_name": null,
       "email": null,
       "phone": null,
       "customer_reference": null,
-      "status": "Standard v1",
+      "status": "712 KB; Standard; v1; modified 11 Feb 14:17",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-02-13T08:00:00Z"
+    },
+    {
+      "resource_id": null,
+      "system": "object_storage",
+      "aliases": [
+        "return_label_4821.pdf"
+      ],
+      "file_name": "return_label_4821.pdf",
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": null,
+      "status": "203 KB; Standard; v1; modified 10 Feb 09:33",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-02-13T08:00:00Z"
+    },
+    {
+      "resource_id": null,
+      "system": "object_storage",
+      "aliases": [
+        "return_label_4876.pdf"
+      ],
+      "file_name": "return_label_4876.pdf",
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": null,
+      "status": "198 KB; Standard; v2; modified 11 Feb 16:05",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-02-13T08:00:00Z"
+    },
+    {
+      "resource_id": null,
+      "system": "object_storage",
+      "aliases": [
+        "invoice_NS-10493.pdf"
+      ],
+      "file_name": "invoice_NS-10493.pdf",
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": null,
+      "status": "318 KB; Standard; v1; modified 10 Feb 11:21",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-02-13T08:00:00Z"
+    },
+    {
+      "resource_id": null,
+      "system": "object_storage",
+      "aliases": [
+        "parcel_damage_7713.jpg"
+      ],
+      "file_name": "parcel_damage_7713.jpg",
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": null,
+      "status": "2.4 MB; Standard; v1; modified 12 Feb 10:08",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-02-13T08:00:00Z"
+    },
+    {
+      "resource_id": null,
+      "system": "object_storage",
+      "aliases": [
+        "customer_export_2026-02-10.zip"
+      ],
+      "file_name": "customer_export_2026-02-10.zip",
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": null,
+      "status": "128 MB; Standard; v1; modified 10 Feb 23:14",
+      "result": "FOUND",
+      "enabled": null,
+      "restore_allowed": null,
+      "observed_at": "2026-02-13T08:00:00Z"
+    },
+    {
+      "resource_id": null,
+      "system": "object_storage",
+      "aliases": [
+        "customer_export_2026-02-12.zip"
+      ],
+      "file_name": "customer_export_2026-02-12.zip",
+      "full_name": null,
+      "email": null,
+      "phone": null,
+      "customer_reference": null,
+      "status": "131 MB; Standard; v1; modified 12 Feb 21:56",
       "result": "FOUND",
       "enabled": null,
       "restore_allowed": null,
       "observed_at": "2026-02-13T08:00:00Z"
     }
   ],
-  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md)"
+  "extracted_by": "claude-opus-5-5 (vision, transcribed in the Claude Code development session; schema = prompts/media_extraction.md; re-verified against the image 2026-10-25: all 8 object rows transcribed, the first version listed only 2)"
 }
