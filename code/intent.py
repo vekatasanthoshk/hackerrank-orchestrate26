@@ -86,7 +86,9 @@ KEEP_CUES = [
     "保留我的帐户", "保留我的帳戶", "保留账户",
 ]
 DELETE_CUES = [
-    r"\bdelet", r"\berase\b", r"\berasure\b", r"\beras(?:ed|ing)\b", r"\bremov", r"\bwipe\b", r"\bpurge\b",
+    r"\bdelet", r"\berase\b", r"\berasure\b", r"\beras(?:ed|ing)\b", r"\bremov", r"\bwip(?:e|ed|ing)\b", r"\bpurge\b",
+    r"\bdestroy", r"\bright to (?:be forgotten|erasure)\b", r"\btake down (?:my|the)\b", r"\bdisappear\b",
+    r"\bget (?:my|all my) \w+ out of\b",
     r"\bforget (?:me|about me|my)\b", r"\bget rid of\b", r"\bdisconnect",
     r"\bclos(?:e|ed|ing) (?:my|this|the) (?:account|profile)", r"\bshut (?:down )?(?:my|this|the) (?:account|profile)",
     r"\bshut (?:it|my account|the account) down", r"\b(?:account|profile) (?:is|was) (?:gone|closed)\b",
@@ -110,6 +112,7 @@ RETRACT_CUES = [
     r"\bno longer (?:want|need) (?:it|my account|the account|my profile|my data|anything) (?:to be )?"
     r"(?:deleted|removed|erased|closed)",
     r"\bhold off on (?:delet|eras|remov|clos)\w*", r"\b(?:do not|don't) (?:go ahead|proceed)\b",
+    r"\b(?:please )?(?:ignore|disregard|cancel|forget) (?:that|it|this)\s*[.!]?\s*$",
     r"\b(?:reopen|reactivate|restore|recover|undelete) (?:it|my account|the account|my profile)\b",
     # es / pt
     r"cambi(?:[ée]|ado) de (?:opini[oó]n|idea)", r"(?:cancel|retir)\w* (?:mi|la) solicitud(?: de (?:eliminaci[oó]n|borrado|baja))?",
@@ -141,26 +144,53 @@ REQUEST_MARKERS = re.compile(
     r"i request|i'm requesting|i am requesting|i demand)\b|por favor|por gentileza|s'il vous pla[iî]t|merci de|"
     r"\bbitte\b|per favore|お願い|ください|주세요|해 주|请|請")
 QUESTION_START = re.compile(
-    r"^\s*(?:what|how|when|why|where|which|who|do|does|did|is|are|was|were|should|whether|"
+    r"^\s*(?:what|how|when|why|where|which|who|do|does|did|is|are|was|were|has|have|had|should|whether|"
     r"qu[ée]|c[oó]mo|cu[aá]ndo|por qu[ée]|o que|como|quando|porque|comment|quand|pourquoi|est-ce|"
     r"wie|wann|warum|wird|werden|cosa|come|perch[ée])\b")
 CJK_QUESTION = re.compile(r"(?:か|까|吗|嗎|呢)\s*[?？]?\s*$")
-CONDITIONAL = re.compile(r"^\s*(?:if|unless|si|se|wenn|falls)\b.*\b(?:i will|i'll|i am going to|i'm going to|"
+CONDITIONAL = re.compile(r"^\s*(?:if|unless|si|se|wenn|falls)\b.*\b(?:i will|i'll|i might|i may|i would|i'd|i could|"
+                         r"i am going to|i'm going to|"
                          r"voy a|vou|je vais|ich werde|lo far[òo]|chiuder[òo]|cerrar[ée]|fecharei|fermerai)\b")
 ABANDONED = re.compile(r"\b(?:was going to|were going to|thought about|considered|was thinking (?:about|of)|"
                        r"had planned to|almost)\b")
 
 
+# What a deletion must be aimed at: the person's account or personal data. "Delete a product from my
+# wishlist" or "remove the extra charge" names another object; "delete their account" someone else's.
+# Verbs that only ever mean leaving the service (退会, 탈퇴, 注销, erasure, right to be forgotten)
+# carry their object with them.
+ACCOUNT_OBJECTS = re.compile(
+    r"\b(?:account|acct|profile|data|information|info|details|records?|everything|membership|registration|"
+    r"cuenta|perfil|datos|informaci[oó]n|conta|cadastro|dados|informa[cç][õo]es|compte|profil|donn[ée]es|"
+    r"informations|konto|kundenkonto|daten|informationen|profilo|dati|informazioni)\b|\bme\b|\bmyself\b|"
+    r"アカウント|個人情報|データ|登録情報|会員|계정|개인정보|정보|데이터|회원|账户|帐户|账号|帳號|帳戶|信息|資料|数据|个人")
+SELF_CONTAINED = re.compile(r"退会|탈퇴|注销|註銷|销户|銷戶|\beras(?:ure)\b|right to (?:be forgotten|erasure)|"
+                            r"\b(?:account )?(?:deletion|erasure|closure) request\b|"
+                            r"\bforget me\b|\bclos\w* (?:my|this|the) (?:account|profile)")
+OTHER_PERSON = re.compile(r"\b(?:their|his|her|a friend's|my friend's)\s+(?:account|acct|profile|data|details)\b")
+FOLLOW_UP_REQUEST = re.compile(r"\b(?:please (?:do (?:it|so|that)|go ahead|proceed)|if so,? (?:please|go ahead|do it))")
+
+
 def _requests_deletion(t, cue_positions):
-    """False when every sentence with a deletion cue only mentions deletion."""
+    """False when every sentence with a deletion cue only mentions deletion, or aims it at
+    something other than the person's own account or data."""
+    text_has_object = bool(ACCOUNT_OBJECTS.search(t))
     for m in SENTENCE_RE.finditer(t):
         a, b = m.span()
         if not any(a <= p < b for p in cue_positions):
             continue
         s = m.group(0).strip()
         first = min(p for p in cue_positions if a <= p < b) - a
+        if OTHER_PERSON.search(s):
+            continue
+        aimed = SELF_CONTAINED.search(s) or ACCOUNT_OBJECTS.search(s) or (
+            re.search(r"\b(?:it|this|that|all)\b", s) and text_has_object)
+        if not aimed:
+            continue
         abandoned = ABANDONED.search(s[:first])
         question = s.endswith(("?", "？")) and (QUESTION_START.search(s) or CJK_QUESTION.search(s))
+        if question and FOLLOW_UP_REQUEST.search(t[b:]):
+            question = False  # "Is it possible to delete my account? If so, please do it."
         if abandoned or CONDITIONAL.search(s) or (question and not REQUEST_MARKERS.search(s)):
             continue
         return True

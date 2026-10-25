@@ -152,7 +152,16 @@ class Intent(unittest.TestCase):
                   "アカウントを削除するとどうなりますか？"]:
             self.assertEqual(rule_intent(t)[0], "NOT_DELETION", t)
         for t in ["Can you delete my account?", "Could you confirm my account is deleted and nothing remains?",
-                  "Would you please erase my data?", "Do you understand? Delete my account."]:
+                  "Would you please erase my data?", "Do you understand? Delete my account.",
+                  "Is it possible to delete my account? If so, please do it."]:
+            self.assertEqual(rule_intent(t)[0], "DELETION", t)
+
+    def test_deletion_must_aim_at_the_persons_account_or_data(self):
+        for t in ["I'd like to delete a product from my wishlist.", "Remove the extra charge from my last order.",
+                  "A friend wants to delete their account; how do they do it?"]:
+            self.assertEqual(rule_intent(t)[0], "NOT_DELETION", t)
+        for t in ["Please process my deletion request.", "I no longer use this account; please delete it.",
+                  "Delete me from your systems.", "退会します。"]:
             self.assertEqual(rule_intent(t)[0], "DELETION", t)
 
     def test_non_deletion(self):
