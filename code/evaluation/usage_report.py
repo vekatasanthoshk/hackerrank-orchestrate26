@@ -62,7 +62,8 @@ def main():
          f"(llm calls {run['intent'].get('llm_calls', 0)}, cache hits {run['intent'].get('cache_hits', 0)}, "
          f"rule-only {run['intent'].get('rule_only', 0)}, LLM-vs-rule disagreements {run['intent_disagreements']})",
          f"- media evidence: {run['media_cache_files']} PNG/PDF artifacts served from `code/cache/media/` "
-         f"({run['media_observations']} extracted records); 0 vision calls in this run", "",
+         f"({run['media_observations']} extracted records); "
+         f"{sum(1 for r in this_run if r['purpose'] == 'media_extraction')} vision calls in this run", "",
          "## Provider / model totals (this run)", "",
          "| Provider | Model | Purpose | Calls | Input tokens | Output tokens | Total tokens | Est. cost (USD) |",
          "|---|---|---|---|---|---|---|---|"]
@@ -92,9 +93,10 @@ def main():
         L += ["### Why this run made zero model calls", "",
               "No `ANTHROPIC_API_KEY` was available in the build environment, so the run used the cached",
               "media extractions and the deterministic multilingual rule classifier for intent (the",
-              "documented fallback in `code/intent.py`). With a key set, `python3 code/main.py` classifies",
-              "each distinct request text once with `claude-haiku-5-5` and this report is regenerated with",
-              "the measured numbers.", "",
+              "documented fallback in `code/intent.py`). With a key set (see `code/docs/LIVE_RUN.md` for",
+              "where to store it safely), `python3 code/main.py --refresh-media` classifies each distinct",
+              "request text once with `claude-haiku-5-5`, re-extracts the 15 artifacts with",
+              "`claude-sonnet-5-5`, and this report is regenerated with the measured numbers.", "",
               "*Projection* for a keyed run (prompt is ~430 tokens + request text ~60 tokens; JSON answer",
               f"~40 tokens plus low-effort thinking): one call per distinct text = {texts} calls x ~500 input /",
               f"~150 output tokens = ~{texts * 500:,} input + ~{texts * 150:,} output tokens, about "

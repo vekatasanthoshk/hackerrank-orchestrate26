@@ -19,7 +19,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from identity import Identities  # noqa: E402
+from identity import Identities, norm  # noqa: E402
 import ingest  # noqa: E402
 from ingest import load_activity, load_observations  # noqa: E402
 from ingest.common import ts_norm  # noqa: E402
@@ -115,6 +115,14 @@ class Auditor:
             return False
         return True
 
+    def _catalog_conflict(self, rid, users):
+        """True when a catalog-linked record carries direct identifiers (emails / phones /
+        hashes) and none of them belongs to the subject - e.g. a screenshot of someone else."""
+        keys = set().union(*(self.ids.keys(u) for u in users)) if users else set()
+        printed = {norm(i) for o in self.index.by_resource.get(rid, []) for i in o.idents}
+        printed = {k for k in printed if k and not k.startswith("user_")}
+        return bool(printed) and not (printed & keys)
+
     def audit(self, raw_req, debug=False):
         req, problems = normalize_request(raw_req)
         dbg = {"case_id": req["case_id"], "problems": problems}
@@ -132,6 +140,10 @@ class Auditor:
             # unknown address: only records carrying this exact email or its hash
             owned.update(self.index.owned_by_keys(self.ids.keys_for_unknown_email(req["email"])))
             problems.append("request email not found in user_identities.csv")
+        for rid, how in owned.items():
+            if how.startswith("catalog:") and self._catalog_conflict(rid, users):
+                problems.append(f"{rid}: data-catalog link to this subject conflicts with the identifiers "
+                                f"printed on the record itself; the catalog link is kept")
         inferred = self.inferred_accounts.get(req["case_id"])
         if inferred and not any(r.startswith("account_") for r in owned):
             owned[inferred] = "inferred:deletion-batch"
@@ -304,7 +316,15 @@ def main():
     ap.add_argument("--inspect", metavar="CASE_ID")
     ap.add_argument("--no-llm", action="store_true", help="use only the rule-based intent classifier")
     ap.add_argument("--dataset", default=DATASET, help="dataset folder (default: ./dataset)")
+    ap.add_argument("--refresh-media", action="store_true",
+                    help="re-extract every PNG/PDF with the vision model (needs ANTHROPIC_API_KEY)")
     args = ap.parse_args()
+    if args.refresh_media:
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            sys.exit("--refresh-media needs ANTHROPIC_API_KEY in the environment")
+        import ingest.media
+
+        ingest.media.REFRESH = True
     if args.inspect:
         inspect(args.inspect)
         return

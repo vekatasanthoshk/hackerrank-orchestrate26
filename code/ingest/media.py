@@ -22,6 +22,11 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE_DIR = os.path.join(HERE, "cache", "media")
 PROMPT_PATH = os.path.join(HERE, "prompts", "media_extraction.md")
 MODEL = os.environ.get("MEDIA_MODEL", "claude-sonnet-5-5")
+MANUAL_DIR = os.path.join(HERE, "cache", "media_manual")
+# set by `main.py --refresh-media`: re-extract every artifact with the vision model even if
+# a cached extraction exists (the previous cache file is kept in cache/media_manual/ once,
+# so evaluation/compare_media.py can diff the two extractions)
+REFRESH = False
 
 
 def _prompt_parts():
@@ -110,6 +115,13 @@ def extract(path, file_id, origin, captured_at):
         return {"records": [], "error": "unsafe file_id"}
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache = os.path.join(CACHE_DIR, f"{file_id}.json")
+    if REFRESH and os.environ.get("ANTHROPIC_API_KEY") and os.path.exists(cache):
+        os.makedirs(MANUAL_DIR, exist_ok=True)
+        keep = os.path.join(MANUAL_DIR, f"{file_id}.json")
+        if not os.path.exists(keep):
+            os.replace(cache, keep)
+        else:
+            os.remove(cache)
     if os.path.exists(cache):
         with open(cache, encoding="utf-8") as fh:
             return json.load(fh)

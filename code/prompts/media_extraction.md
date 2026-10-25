@@ -47,6 +47,7 @@ Rules:
 
 1. One entry per distinct record row or detail panel. Staff / company accounts
    (e.g. `@northstar.shop`, `@company.com`) are still records; transcribe them.
-2. A continuously syncing, healthy connector is `enabled: true`.
-3. A backup listed as restorable with no restore block is `restore_allowed: true`.
+2. `enabled` / `restore_allowed` only when the screen states it (for example a connector shown
+   as "Healthy" / continuously syncing is `enabled: true`; "Restore: blocked" is
+   `restore_allowed: false`). If the artifact does not state it, use `null`. Never infer it.
 4. Do not add commentary outside the JSON object.

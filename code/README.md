@@ -19,7 +19,8 @@ python3 code/evaluation/validate_output.py         # contract checks on output.c
 python3 code/evaluation/main.py                    # scores on samples + custom cases
 python3 code/evaluation/usage_report.py            # regenerates evaluation/usage_report.md
 python3 code/main.py --inspect case_11             # identities, matched evidence, decision trace
-python3 -m unittest discover -s code/tests -v      # 32 unit, robustness, security and end-to-end tests
+python3 -m unittest discover -s code/tests -v      # 34 unit, robustness, security and end-to-end tests
+python3 code/package_submission.py                 # validate + rebuild submission/ (code.zip, output.csv, log.txt)
 ```
 
 Python 3.10+ is required (tested on 3.11 and 3.13; output is byte-identical across both). The deterministic pipeline uses only the standard library
@@ -77,11 +78,13 @@ Per case:
 | PNG / PDF extraction | `claude-sonnet-5-5` vision (effort medium) | 15 files, extracted once, cached in `cache/media/` |
 
 Everything else is deterministic code. Without `ANTHROPIC_API_KEY` the run uses the cached
-media extractions and the rule-based classifier. The submitted `output.csv` was produced this
-way: the build environment had no key, and `evaluation/usage_report.md` states that plainly.
-The media cache was transcribed in the development session by Claude (vision) using the same
-JSON schema as `prompts/media_extraction.md`. Delete a file in `cache/media/` to have
-`media.py` re-extract it through the API.
+media extractions and the rule-based classifier, and `evaluation/usage_report.md` says so.
+The cache was transcribed during development with the schema in `prompts/media_extraction.md`.
+With a key, `python3 code/main.py --refresh-media` re-extracts all 15 artifacts with the
+vision model and keeps the transcription in `cache/media_manual/`. Then
+`evaluation/compare_media.py` diffs the two extractions field by field (a model-comparison
+report). Step-by-step instructions, including **where to store the key safely**, are in
+`docs/LIVE_RUN.md`. Never put the key in the repo, in chat, or in `log.txt`.
 
 ## Robustness and security
 

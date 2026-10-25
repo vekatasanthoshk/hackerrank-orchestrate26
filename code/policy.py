@@ -10,6 +10,7 @@ Each rule's required_action maps to a treatment:
   RETAIN     BACKUP_ARCHIVE (restore access can be blocked)
              restore allowed -> REPORT_RESTORE_RISK / BLOCK_RESTORE
 Data flows are recreation paths: enabled -> REPORT_ACTIVE_DATA_FLOW / DISABLE_DATA_FLOW.
+A backup or flow whose block / disable status is not shown is still a recreation path.
 
 Every relevant resource gets a verification step for its required final state,
 including resources that were already compliant.
@@ -84,10 +85,13 @@ class Policy:
                 return FIND[t], FIX[t], VERIFY[t], True
             return None, None, VERIFY[t], rs.exposed is False
         if t in ("BLOCK", "DISABLE"):
-            if rs.exists and rs.active is True:
+            # A retained backup or a data flow is a recreation path until evidence shows it
+            # blocked / disabled (rule 14 "restore access can be blocked"; COMPLETE requires
+            # that no restore or sync path can recreate data). The finding cites the evidence
+            # showing the path exists without a block.
+            if rs.exists and rs.active is not False:
                 return FIND[t], FIX[t], VERIFY[t], True
-            # gone, or explicitly disabled / blocked; unknown flags are not proof
-            return None, None, VERIFY[t], (not rs.exists) or rs.active is False
+            return None, None, VERIFY[t], True
         if t == "RETAIN":
             # required final state is "present"; a missing retained record cannot be proven
             return None, None, VERIFY["RETAIN"], bool(rs.exists)

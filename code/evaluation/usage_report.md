@@ -6,7 +6,7 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 ## Final full-dataset run
 
-- run id: `20261024T224927Z` (finished 2026-10-24T22:49:28Z)
+- run id: `20261025T053841Z` (finished 2026-10-25T05:38:42Z)
 - input: `dataset/deletion_requests.csv` -> `output.csv`; 518 requests
 - statuses: COMPLETE 160, INCOMPLETE 348, NOT_APPLICABLE 10
 - LLM intent classification enabled: **False** over 375 distinct request texts (llm calls 0, cache hits 0, rule-only 375, LLM-vs-rule disagreements 0)
@@ -35,9 +35,10 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 No `ANTHROPIC_API_KEY` was available in the build environment, so the run used the cached
 media extractions and the deterministic multilingual rule classifier for intent (the
-documented fallback in `code/intent.py`). With a key set, `python3 code/main.py` classifies
-each distinct request text once with `claude-haiku-5-5` and this report is regenerated with
-the measured numbers.
+documented fallback in `code/intent.py`). With a key set (see `code/docs/LIVE_RUN.md` for
+where to store it safely), `python3 code/main.py --refresh-media` classifies each distinct
+request text once with `claude-haiku-5-5`, re-extracts the 15 artifacts with
+`claude-sonnet-5-5`, and this report is regenerated with the measured numbers.
 
 *Projection* for a keyed run (prompt is ~430 tokens + request text ~60 tokens; JSON answer
 ~40 tokens plus low-effort thinking): one call per distinct text = 375 calls x ~500 input /

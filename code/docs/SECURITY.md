@@ -30,6 +30,8 @@ Every guard below has a test in `code/tests/test_robustness.py`.
 | S10 | Low | A tampered intent cache could inject labels | entries are loaded only if the label is exactly `DELETION` / `NOT_DELETION`; writes are atomic (`*.tmp` + `os.replace`) |
 | S11 | Low | `output.csv` was written in place, so a crash left a half-written file | written to `output.csv.tmp` then atomically replaced |
 | S12 | Info | Secrets | the key is read from the environment / an untracked `.env` (`.env`, `.env.*` ignored). The SDK is called without logging the key. The ledger stores only token counts. A scan of tracked files and the agent trace found no keys or tokens |
+| S13 | Medium (privacy) | `submission/agent-trace.zip` (full session transcript incl. the user's email) was committed to a public repo | removed from the tree and ignored; `package_submission.py` never builds it; `docs/LIVE_RUN.md` says to upload the trace directly. Earlier commits still contain it until the history is rewritten |
+| S14 | Info | API key placement | key only in the cloud environment's secrets / an untracked `.env`; never in chat, commits or `log.txt` (which is submitted) - see `docs/LIVE_RUN.md` |
 
 Not applicable / checked: no `eval`, `exec`, `pickle`, `yaml.load`, `shell=True` or
 `os.system` anywhere. The only `subprocess` use is in tests, with fixed argv. CSV output contains only

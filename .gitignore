@@ -7,3 +7,6 @@ code/cache/usage_ledger.jsonl
 .env.*
 *.tmp
 download/
+submission/agent-trace.zip
+agent-trace*/
+code/cache/media_manual/*.tmp

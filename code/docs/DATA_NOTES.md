@@ -76,6 +76,22 @@ A `cache_lookup result=miss` inside a trace is not a record miss.
 8. **Ownership may come from files exported after audit_at** (case_23 `audit_record_4128` is only in
    the 09-17 bundle, observed 09-15): such resources get a check only and are never cited.
 
+## Judgement calls (documented so they can be challenged)
+
+* **Backups / data flows with an unstated block status.** `evidence_32` shows `backup_9287` in a
+  recovery console with no restore block, but it never prints a restore permission. The
+  extraction records `restore_allowed: null` (stated facts only). Policy then treats a retained
+  backup or flow as a recreation path **until evidence shows it blocked / disabled**. That
+  follows rule 14 ("restore access can be blocked") and the definition of COMPLETE ("no ...
+  restore path can recreate data").
+* **Catalog link vs. screenshot content (case_63).** Catalog row `activity_4008` links
+  `marketing_001` to kwame-mensah@proton.me / user_09, but the screenshot `evidence_60` shows a
+  different person (Soo-jin Park, sj.park@naver.com, not in `user_identities.csv`). All 11
+  other catalog links agree with their artifacts. The marketing screen is the only static
+  asset without a date in its filename and uses the hand-made `_001` numbering, so it reads
+  as a template image. The link is kept, and every run prints a conflict warning (the only
+  one on this dataset).
+
 ## Known limits of the public data
 
 Some sample answers include resources that no participant-visible artifact ties to the subject

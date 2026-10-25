@@ -491,3 +491,25 @@ repo_root=/home/user/hackerrank-orchestrate26
 worktree=main
 parent_agent=none
 
+## [2026-10-25T05:39:12Z] Fix the self-review findings; explain safe API key placement
+
+User Prompt (verbatim, secrets redacted):
+Fix everything and I have the key where to upload securely in repo
+
+Agent Response Summary:
+Explained that the key must never go into the repo, chat or log.txt; it belongs in the cloud environment's settings (Network secrets / env var ANTHROPIC_API_KEY, picked up by a new session) or an untracked .env locally, and wrote code/docs/LIVE_RUN.md. Fixed every self-review finding that does not need the key: the media transcription no longer invents restore_allowed, and the policy states the recreation-path rule explicitly. The catalog-vs-screenshot conflict (case_63) is now detected and documented. Custom cases 03-05 were rewritten by hand with per-step derivations, and two new hand-derived cases were added (7/7 pass). A held-out 24-text intent probe was added (rules 21/24, 0 false deletions). Added --refresh-media, compare_media.py, a ledger-driven usage report and package_submission.py, and removed agent-trace.zip from the repo tree. output.csv is unchanged; 34 tests pass on Python 3.11 and 3.13. The live model run remains pending on the user's key.
+
+Actions:
+* Edited code/policy.py, code/main.py, code/ingest/media.py, prompts/media_extraction.md, cache/media/evidence_32.json, evaluation/{main,usage_report}.py
+* Created code/docs/LIVE_RUN.md, code/evaluation/compare_media.py, code/evaluation/intent_probe.json, code/package_submission.py, custom_cases/custom_06*, custom_07*; rewrote custom_03-05
+* git rm submission/agent-trace.zip; updated .gitignore, README, DATA_NOTES, SECURITY, evaluation_report
+* python3 -m unittest (34 OK, py3.11 + py3.13); main.py; evaluation/main.py --write-report; package_submission.py; git commit; git push
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=main
+repo_root=/home/user/hackerrank-orchestrate26
+worktree=main
+parent_agent=none
+

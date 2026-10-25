@@ -1,0 +1,98 @@
+[
+ {
+  "text": "Kindly wipe every trace of me from your shop, account included.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "I'm done with Northstar. Shut my account down and get rid of my personal data.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Under GDPR Article 17 I exercise my right to erasure for this account.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Can you make sure nothing about me is left after you close my profile?",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Bitte löschen Sie mein Konto und alle meine Daten.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Vorrei cancellare definitivamente il mio account e i miei dati.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Por favor borren mi cuenta y todos mis datos personales.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Merci d'effacer mon compte ainsi que mes données.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "請刪除我的帳戶以及所有個人資料。",
+  "expected": "DELETION"
+ },
+ {
+  "text": "アカウントを退会し、個人データを消去してください。",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Please close my account; you may keep anonymised statistics only.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Remove my account. Security logs can stay if the law requires it.",
+  "expected": "DELETION"
+ },
+ {
+  "text": "Please update my shipping address to 12 Rue Lafayette.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "I want a list of all the data you store about me.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Unsubscribe me from the newsletter, but keep my account open.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "How do I change my password? I keep getting locked out.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Send me an export of my order history as CSV.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Bitte senden Sie mir eine Kopie meiner Daten.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Por favor, corrijan mi apellido en la cuenta.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Je voudrais télécharger mes données, sans fermer mon compte.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "メールアドレスを変更したいです。アカウントはそのまま使います。",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Stop sending me SMS promotions please.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "Please do not delete anything, I only need my invoices.",
+  "expected": "NOT_DELETION"
+ },
+ {
+  "text": "My account was hacked; please lock it while I reset my credentials.",
+  "expected": "NOT_DELETION"
+ }
+]

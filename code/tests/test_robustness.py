@@ -168,8 +168,10 @@ class PolicyUnknownStates(unittest.TestCase):
 
     def test_unknown_state_is_never_proof(self):
         p = Policy(DATASET)
-        self.assertFalse(p.evaluate(self._rs("BACKUP_ARCHIVE", active=None))[3])
-        self.assertFalse(p.evaluate(self._rs("DATA_FLOW", active=None))[3])
+        # a backup / flow not shown blocked / disabled is still a recreation path -> finding
+        self.assertEqual(p.evaluate(self._rs("BACKUP_ARCHIVE", active=None))[0][0], "REPORT_RESTORE_RISK")
+        self.assertEqual(p.evaluate(self._rs("DATA_FLOW", active=None))[0][0], "REPORT_ACTIVE_DATA_FLOW")
+        self.assertIsNone(p.evaluate(self._rs("BACKUP_ARCHIVE", active=False))[0])
         self.assertFalse(p.evaluate(self._rs("SUPPORT_MESSAGE", exposed=None))[3])
         self.assertFalse(p.evaluate(self._rs("SECURITY_AUDIT_LOG", exists=False))[3])
         self.assertTrue(p.evaluate(self._rs("BACKUP_ARCHIVE", active=False))[3])
@@ -183,6 +185,22 @@ class PolicyUnknownStates(unittest.TestCase):
         self.assertTrue(interpret("telemetry_service", {"user_id": "user_1"})[1])
 
 
+class Packaging(unittest.TestCase):
+    def test_code_zip_excludes_secrets_and_data(self):
+        import zipfile
+
+        from package_submission import build_zip
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "code.zip")
+            build_zip(out)
+            names = zipfile.ZipFile(out).namelist()
+        self.assertIn("code/main.py", names)
+        self.assertIn("code/evaluation/evaluation_report.md", names)
+        self.assertFalse([n for n in names if n.startswith("dataset/") or ".env" in n or n.endswith((".pyc", ".zip"))
+                          or "usage_ledger" in n or "__pycache__" in n])
+
+
 class RequestEdgeCases(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -193,6 +211,13 @@ class RequestEdgeCases(unittest.TestCase):
         cls.base = {"case_id": "edge_1", "email": "novak.tomasz@icloud.com", "requested_at": "2026-09-09T12:00:00Z",
                     "reported_status": "COMPLETE", "reported_at": "2026-09-12T12:00:00Z",
                     "audit_at": "2026-10-01T12:00:00Z", "request_text": "Please delete my account."}
+
+    def test_catalog_conflict_is_reported(self):
+        req = dict(self.base, case_id="edge_mkt", email="kwame-mensah@proton.me", audit_at="2026-09-17T09:20:00Z",
+                   requested_at="2026-09-14T04:20:00Z", reported_at="2026-09-15T22:20:00Z")
+        st, steps, d = self.a.audit(req)
+        self.assertTrue(any("conflicts" in p for p in d["problems"]))
+        self.assertEqual(st, "INCOMPLETE")  # link kept: decision documented in DATA_NOTES.md
 
     def test_unknown_email(self):
         st, steps, d = self.a.audit(dict(self.base, email="nobody-at-all@example.org"))

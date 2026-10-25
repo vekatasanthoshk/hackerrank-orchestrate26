@@ -13,5 +13,6 @@
   "expected": {
     "deletion_status": "NOT_APPLICABLE",
     "steps": []
-  }
+  },
+  "provenance": "expected output written by hand (non-deletion request -> NOT_APPLICABLE with [])"
 }

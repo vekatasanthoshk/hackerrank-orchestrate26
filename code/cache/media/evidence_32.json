@@ -11,10 +11,10 @@
       "email": "bluepeakco@outlook.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; created 26 Apr 02:00",
+      "status": "Archive; created 26 Apr 02:00; no restore block shown",
       "result": "FOUND",
       "enabled": null,
-      "restore_allowed": "true",
+      "restore_allowed": null,
       "observed_at": "2026-04-29T09:00:00Z"
     },
     {
@@ -25,10 +25,10 @@
       "email": "miller.logistics@company.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; created 26 Apr 02:00",
+      "status": "Archive; created 26 Apr 02:00; no restore block shown",
       "result": "FOUND",
       "enabled": null,
-      "restore_allowed": "true",
+      "restore_allowed": null,
       "observed_at": "2026-04-29T09:00:00Z"
     },
     {
@@ -39,10 +39,10 @@
       "email": "areed1433@gmail.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; checksum verified; retention end 26 Jul 2026; restores completing",
+      "status": "Archive; checksum verified; retention end 26 Jul 2026; restores completing; no restore block shown",
       "result": "FOUND",
       "enabled": null,
-      "restore_allowed": "true",
+      "restore_allowed": null,
       "observed_at": "2026-04-29T09:00:00Z"
     },
     {
@@ -53,10 +53,10 @@
       "email": "summit-retail@company.com",
       "phone": null,
       "customer_reference": null,
-      "status": "Archive; restored 25 Apr",
+      "status": "Archive; restored 25 Apr; no restore block shown",
       "result": "FOUND",
       "enabled": null,
-      "restore_allowed": "true",
+      "restore_allowed": null,
       "observed_at": "2026-04-29T09:00:00Z"
     }
   ],
