@@ -1,0 +1,8 @@
+{"snapshots": [
+ {"captured_at": "2026-08-02T12:00:00Z", "data_store": "support_platform", "collection": "ticket_messages",
+  "records": [{"resource_id": "support_9311", "ticket_id": "CS-9311", "subject_reference": "user_931",
+               "message_text": "Please call me on +44 7700 900931 before the courier arrives."}]},
+ {"captured_at": "2026-08-02T12:00:00Z", "data_store": "support_platform", "collection": "ticket_attachments",
+  "records": [{"resource_id": "support_9312", "ticket_id": "CS-9311", "file_name": "proof_of_address_9312.pdf",
+               "uploaded_by": "d.subject@example.test", "storage_class": "ticket_attachment"}]}
+]}

@@ -1,0 +1,3 @@
+2026-05-11T08:00:00Z level=DEBUG service=integration_service trace_id=fx-1 event=connector_config_read_started resource_id=data_flow_9901 lookup_key=a.subject@example.test
+2026-05-11T08:00:01Z level=INFO service=integration_service trace_id=fx-1 event=connector_config_read_completed resource_id=data_flow_9901 enabled=true connector_name=profile_sync subject_selector=user_901
+2026-05-11T08:10:00Z level=DEBUG service=cache_service trace_id=fx-1b event=cache_lookup result=miss

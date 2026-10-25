@@ -1,0 +1,5 @@
+{"exported_at": "2026-07-02T12:00:00Z",
+ "service_exports": {"search_service": {"queries": [
+  {"resource_id": "search_9111", "observed_at": "2026-07-02T10:00:00Z", "query": "b.subject@example.test",
+   "hits": {"total": 0, "documents": []}}
+ ]}}}

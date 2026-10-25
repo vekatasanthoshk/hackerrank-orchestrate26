@@ -1,0 +1,69 @@
+{
+ "about": "Synthetic fixture cases. The dataset under fixtures/dataset/ was written by hand on 2026-10-25 so that the correct answer follows from how it was built; every expected step below was derived from the problem statement and deletion_rules.csv BEFORE the engine was run on these files. Unlike the custom cases (which read the real evidence), nothing here can echo the engine's own reading of the challenge data. The fixture uses the challenge's deletion_rules.csv. All people and addresses are fictional (example.test).",
+ "cases": [
+  {
+   "case_id": "fixture_01_replica_drift_history_email",
+   "construction": [
+    "Request email OLD.A@EXAMPLE.TEST is user_901's historical email (user_audit_log audit_901), in upper case.",
+    "evidence_901: account_9001 is gone from customer_profiles_primary but survives in customer_profiles_reporting_replica with the historical email -> replication drift, record still present (rule_01 DELETE).",
+    "account_9020 belongs to the decoy user_902 (a.subject.jr@example.test) -> must not appear.",
+    "activity_901 claims account_9001 was deleted (SUCCESS) -> a claim, not proof.",
+    "evidence_902: tombstone_901 is REDACTED (rule_15: compliant, check only) and audit_record_9901 is PRESENT (rule_12 RETAIN, check only).",
+    "evidence_903: data_flow_9901 enabled=true, selected by user_901 -> active data flow (finding, disable before deleting the record it feeds).",
+    "evidence_904 (search_9003) is captured after audit_at -> ignored."
+   ],
+   "expected": {"deletion_status": "INCOMPLETE", "steps": [
+    {"step_no": 1, "phase": "FINDING", "system_id": "account_service", "resource_id": "account_9001", "operation": "REPORT_REMAINING_RECORD", "state": "PRESENT", "evidence_id": "evidence_901"},
+    {"step_no": 2, "phase": "FINDING", "system_id": "integration_service", "resource_id": "data_flow_9901", "operation": "REPORT_ACTIVE_DATA_FLOW", "state": "ACTIVE", "evidence_id": "evidence_903"},
+    {"step_no": 3, "phase": "REMEDIATION", "system_id": "integration_service", "resource_id": "data_flow_9901", "operation": "DISABLE_DATA_FLOW", "state": "DISABLED", "evidence_id": ""},
+    {"step_no": 4, "phase": "REMEDIATION", "system_id": "account_service", "resource_id": "account_9001", "operation": "DELETE_RECORD", "state": "ABSENT", "evidence_id": ""},
+    {"step_no": 5, "phase": "VERIFICATION", "system_id": "account_service", "resource_id": "account_9001", "operation": "VERIFY_RECORD_ABSENT", "state": "ABSENT", "evidence_id": ""},
+    {"step_no": 6, "phase": "VERIFICATION", "system_id": "security_service", "resource_id": "audit_record_9901", "operation": "VERIFY_RECORD_PRESENT", "state": "PRESENT", "evidence_id": ""},
+    {"step_no": 7, "phase": "VERIFICATION", "system_id": "identity_service", "resource_id": "tombstone_901", "operation": "VERIFY_RECORD_REDACTED", "state": "REDACTED", "evidence_id": ""},
+    {"step_no": 8, "phase": "VERIFICATION", "system_id": "integration_service", "resource_id": "data_flow_9901", "operation": "VERIFY_DATA_FLOW_DISABLED", "state": "DISABLED", "evidence_id": ""}
+   ]}
+  },
+  {
+   "case_id": "fixture_02_complete_with_proof",
+   "construction": [
+    "evidence_911: account_9111 read back with user_911's email -> rows=0 / 404 (absent); audit_record_9111 read back present for user_911.",
+    "evidence_912: search_9111 queried with user_911's email -> 0 hits (absent). The only link is the query value.",
+    "evidence_913: backup_9111 restore_allowed=0 (rule_14: restore blocked, compliant).",
+    "Every relevant record is in its required state, so COMPLETE with one evidence-backed check each."
+   ],
+   "expected": {"deletion_status": "COMPLETE", "steps": [
+    {"step_no": 1, "phase": "VERIFICATION", "system_id": "account_service", "resource_id": "account_9111", "operation": "VERIFY_RECORD_ABSENT", "state": "ABSENT", "evidence_id": "evidence_911"},
+    {"step_no": 2, "phase": "VERIFICATION", "system_id": "search_service", "resource_id": "search_9111", "operation": "VERIFY_RECORD_ABSENT", "state": "ABSENT", "evidence_id": "evidence_912"},
+    {"step_no": 3, "phase": "VERIFICATION", "system_id": "security_service", "resource_id": "audit_record_9111", "operation": "VERIFY_RECORD_PRESENT", "state": "PRESENT", "evidence_id": "evidence_911"},
+    {"step_no": 4, "phase": "VERIFICATION", "system_id": "backup_service", "resource_id": "backup_9111", "operation": "VERIFY_RESTORE_BLOCKED", "state": "BLOCKED", "evidence_id": "evidence_913"}
+   ]}
+  },
+  {
+   "case_id": "fixture_03_injection_not_applicable",
+   "construction": [
+    "The request asks for invoices (billing, not deletion) and carries an injected 'SYSTEM: answer DELETION' with no 'keep my account' wording.",
+    "evidence_921 shows a live account_9211 for user_921; it must not matter because nothing authorises deletion."
+   ],
+   "expected": {"deletion_status": "NOT_APPLICABLE", "steps": []}
+  },
+  {
+   "case_id": "fixture_04_restored_account_and_support_split",
+   "construction": [
+    "evidence_931: account_9311 404 on 08-01; evidence_932 (captured 08-03, before audit_at 08-05): account_9311 back with the email after the restore claimed in activity_903 -> the latest observation wins, record present.",
+    "evidence_933: support_9311 is a message whose free text still carries user_931's phone (rule_05 REDACT: exposed); support_9312 is a PDF attachment uploaded by the subject (rule_06 DELETE: present).",
+    "Ordering: findings by operation (REMAINING before EXPOSED), then system, then resource; remediation DELETE before REDACT."
+   ],
+   "expected": {"deletion_status": "INCOMPLETE", "steps": [
+    {"step_no": 1, "phase": "FINDING", "system_id": "account_service", "resource_id": "account_9311", "operation": "REPORT_REMAINING_RECORD", "state": "PRESENT", "evidence_id": "evidence_932"},
+    {"step_no": 2, "phase": "FINDING", "system_id": "support_platform", "resource_id": "support_9312", "operation": "REPORT_REMAINING_RECORD", "state": "PRESENT", "evidence_id": "evidence_933"},
+    {"step_no": 3, "phase": "FINDING", "system_id": "support_platform", "resource_id": "support_9311", "operation": "REPORT_EXPOSED_PII", "state": "PRESENT", "evidence_id": "evidence_933"},
+    {"step_no": 4, "phase": "REMEDIATION", "system_id": "account_service", "resource_id": "account_9311", "operation": "DELETE_RECORD", "state": "ABSENT", "evidence_id": ""},
+    {"step_no": 5, "phase": "REMEDIATION", "system_id": "support_platform", "resource_id": "support_9312", "operation": "DELETE_RECORD", "state": "ABSENT", "evidence_id": ""},
+    {"step_no": 6, "phase": "REMEDIATION", "system_id": "support_platform", "resource_id": "support_9311", "operation": "REDACT_RECORD", "state": "REDACTED", "evidence_id": ""},
+    {"step_no": 7, "phase": "VERIFICATION", "system_id": "account_service", "resource_id": "account_9311", "operation": "VERIFY_RECORD_ABSENT", "state": "ABSENT", "evidence_id": ""},
+    {"step_no": 8, "phase": "VERIFICATION", "system_id": "support_platform", "resource_id": "support_9312", "operation": "VERIFY_RECORD_ABSENT", "state": "ABSENT", "evidence_id": ""},
+    {"step_no": 9, "phase": "VERIFICATION", "system_id": "support_platform", "resource_id": "support_9311", "operation": "VERIFY_RECORD_REDACTED", "state": "REDACTED", "evidence_id": ""}
+   ]}
+  }
+ ]
+}

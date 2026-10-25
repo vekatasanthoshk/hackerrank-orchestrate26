@@ -120,22 +120,55 @@ def predict(auditor, requests):
     return out
 
 
-def score_intent_probe(auditor):
-    """Held-out intent probe (intent_probe.json): texts written after the rules were frozen.
-    Scores the rule classifier always, and the configured classifier (LLM when a key is set)."""
-    from intent import rule_intent
+PROBES = (("dev", "intent_probe.json"), ("held-out", "intent_probe_heldout.json"))
 
-    path = os.path.join(HERE, "intent_probe.json")
-    if not os.path.exists(path):
-        return None
-    with open(path, encoding="utf-8") as fh:
-        probe = json.load(fh)
-    rules = sum(rule_intent(p["text"])[0] == p["expected"] for p in probe)
-    active = sum(("DELETION" if auditor.intent.classify(p["text"])[0] else "NOT_DELETION") == p["expected"]
-                 for p in probe)
-    unsafe = sum(1 for p in probe if p["expected"] == "NOT_DELETION" and auditor.intent.classify(p["text"])[0])
-    return {"n": len(probe), "rules_correct": rules, "active_correct": active,
-            "active_source": "llm" if auditor.intent.use_llm else "rules", "false_deletions": unsafe}
+
+def score_intent_probes(auditor):
+    """Intent probes. ``intent_probe.json`` (24 texts) is now a dev set: its three misses were seen
+    while the rule layer was rewritten. ``intent_probe_heldout.json`` (60 texts) was written after
+    that rewrite and is scored, never tuned on. Scores the rule layer always, and the configured
+    classifier (the LLM when a key is set)."""
+    from intent import rule_intent, sanitize
+
+    out = []
+    for name, fname in PROBES:
+        path = os.path.join(HERE, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            probe = json.load(fh)
+        probe = probe["cases"] if isinstance(probe, dict) else probe
+        rules = sum(rule_intent(sanitize(p["text"])[0])[0] == p["expected"] for p in probe)
+        labels = ["DELETION" if auditor.intent.classify(p["text"])[0] else "NOT_DELETION" for p in probe]
+        active = sum(lab == p["expected"] for lab, p in zip(labels, probe))
+        unsafe = sum(lab == "DELETION" and p["expected"] == "NOT_DELETION" for lab, p in zip(labels, probe))
+        misses = [p["text"] for lab, p in zip(labels, probe) if lab != p["expected"]]
+        out.append({"name": name, "file": fname, "n": len(probe), "rules_correct": rules, "active_correct": active,
+                    "active_source": "llm" if auditor.intent.use_llm else "rules", "false_deletions": unsafe,
+                    "misses": misses})
+    return out
+
+
+def ablation(sample_reqs, gold):
+    """Effect of the two sample-derived heuristics: on the samples (score) and on the 518 requests
+    (how many answers change). Both are evidence-free inferences, so this is reported, not hidden."""
+    from main import Auditor, DATASET
+
+    with open(os.path.join(DATASET, "deletion_requests.csv"), encoding="utf-8") as fh:
+        eval_reqs = list(csv.DictReader(fh))
+    variants = {"full pipeline": {}, "without batch account inference": {"batch_inference": False},
+                "without episode scoping": {"episode_scoping": False}}
+    rows, base_eval = [], None
+    for label, kw in variants.items():
+        a = Auditor(use_llm=False, **kw)
+        a.prepare()
+        s, _ = score(predict(a, sample_reqs), gold)
+        ev = predict(a, eval_reqs)
+        base_eval = base_eval or ev
+        changed = sum(ev[c] != base_eval[c] for c in ev)
+        status = sum(ev[c][0] != base_eval[c][0] for c in ev)
+        rows.append((label, s, changed, status))
+    return rows
 
 
 def print_summary(title, s):
@@ -144,10 +177,53 @@ def print_summary(title, s):
         print(f"  {k:<20} {v:.3f}" if isinstance(v, float) else f"  {k:<20} {v}")
 
 
+FIXTURES = os.path.join(HERE, "fixtures")
+
+
+def run_fixtures():
+    """Synthetic fixture cases: fixtures/cases.json against the hand-built fixture dataset (plus the
+    challenge's deletion_rules.csv). Expected answers follow from how the fixture was built."""
+    import shutil
+    import tempfile
+
+    from main import Auditor, DATASET
+
+    path = os.path.join(FIXTURES, "cases.json")
+    if not os.path.exists(path):
+        return None, []
+    with open(path, encoding="utf-8") as fh:
+        cases = json.load(fh)["cases"]
+    with tempfile.TemporaryDirectory() as tmp:
+        ds = os.path.join(tmp, "dataset")
+        shutil.copytree(os.path.join(FIXTURES, "dataset"), ds)
+        shutil.copy(os.path.join(DATASET, "deletion_rules.csv"), ds)
+        auditor = Auditor(dataset=ds, use_llm=False)
+        auditor.prepare()
+        with open(os.path.join(ds, "deletion_requests.csv"), encoding="utf-8") as fh:
+            reqs = {r["case_id"]: r for r in csv.DictReader(fh)}
+        pred = {c["case_id"]: auditor.audit(reqs[c["case_id"]])[:2] for c in cases}
+    gold = {c["case_id"]: (c["expected"]["deletion_status"], c["expected"]["steps"]) for c in cases}
+    return score(pred, gold)
+
+
+def print_suite(title, summary, cases, quiet):
+    print_summary(title, summary)
+    for c in cases:
+        print(f"  {'PASS' if c['exact'] else 'FAIL'} {c['case_id']}: {c['pred_status']} (expected {c['gold_status']})")
+        if not c["exact"] and not quiet:
+            for k in c["missing"]:
+                print("      - missing", k)
+            for k in c["extra"]:
+                print("      + extra  ", k)
+            for d in c["evidence_diffs"]:
+                print("      ~ evidence", d)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--no-llm", action="store_true")
+    ap.add_argument("--ablation", action="store_true", help="also measure the two sample-derived heuristics")
     ap.add_argument("--write-report", action="store_true")
     args = ap.parse_args()
     from main import Auditor, DATASET, _load_env
@@ -176,53 +252,63 @@ def main():
     c_summary, c_cases = None, []
     if custom:
         cgold = {c["request"]["case_id"]: (c["expected"]["deletion_status"], c["expected"]["steps"]) for c in custom}
-        cpred = {}
-        for c in custom:
-            st, steps, _ = auditor.audit(c["request"])
-            if c["expected"].get("check") == "status_only":
-                steps = c["expected"]["steps"] if st == c["expected"]["deletion_status"] else steps
-            cpred[c["request"]["case_id"]] = (st, steps)
+        cpred = {c["request"]["case_id"]: auditor.audit(c["request"])[:2] for c in custom}
         c_summary, c_cases = score(cpred, cgold)
-        print_summary(f"Custom cases ({len(custom)})", c_summary)
-        for c in c_cases:
-            flag = "PASS" if c["exact"] else "FAIL"
-            print(f"  {flag} {c['case_id']}: {c['pred_status']} (expected {c['gold_status']})")
-            if not c["exact"] and not args.quiet:
-                for k in c["missing"]:
-                    print("      - missing", k)
-                for k in c["extra"]:
-                    print("      + extra  ", k)
-    probe = score_intent_probe(auditor)
-    if probe:
-        print(f"\n### Held-out intent probe ({probe['n']} texts)\n  rules {probe['rules_correct']}/{probe['n']}, "
-              f"active classifier ({probe['active_source']}) {probe['active_correct']}/{probe['n']}, "
-              f"false deletions {probe['false_deletions']}")
+        print_suite(f"Custom cases on the challenge evidence ({len(custom)})", c_summary, c_cases, args.quiet)
+    f_summary, f_cases = run_fixtures()
+    if f_summary:
+        print_suite(f"Synthetic fixture cases ({len(f_cases)})", f_summary, f_cases, args.quiet)
+    probes = score_intent_probes(auditor)
+    for p in probes:
+        print(f"\n### Intent probe, {p['name']} ({p['n']} texts, {p['file']})\n  rules {p['rules_correct']}/{p['n']}, "
+              f"active classifier ({p['active_source']}) {p['active_correct']}/{p['n']}, "
+              f"false deletions {p['false_deletions']}")
+        for t in p["misses"]:
+            print("      miss:", t)
+    abl = None
+    if args.ablation:
+        abl = ablation(sample_reqs, gold)
+        print("\n### Ablation of the sample-derived heuristics")
+        for label, s, changed, status in abl:
+            print(f"  {label:<36} samples recall {s['step_recall']:.3f} precision {s['step_precision']:.3f} "
+                  f"status {s['status_accuracy']:.3f}; evaluation answers changed {changed} (status {status})")
     if args.write_report:
-        write_metrics(s_summary, s_cases, c_summary, c_cases, probe)
+        write_metrics(s_summary, s_cases, c_summary, c_cases, f_summary, f_cases, probes, abl)
 
 
-def write_metrics(s_summary, s_cases, c_summary, c_cases, probe=None):
+def write_metrics(s_summary, s_cases, c_summary, c_cases, f_summary=None, f_cases=(), probes=(), abl=None):
     path = os.path.join(HERE, "evaluation_report.md")
+    fmt = (lambda x: f"{x:.3f}" if isinstance(x, float) else str(x))  # noqa: E731
     lines = ["<!-- METRICS:START (generated by code/evaluation/main.py --write-report) -->", "",
-             "| Metric | Public samples (32) | Custom cases |", "|---|---|---|"]
+             "| Metric | Public samples (32) | Custom cases | Synthetic fixtures |", "|---|---|---|---|"]
     for k, v in s_summary.items():
-        cv = c_summary.get(k, "") if c_summary else ""
-        fmt = (lambda x: f"{x:.3f}" if isinstance(x, float) else str(x))
-        lines.append(f"| {k} | {fmt(v)} | {fmt(cv) if cv != '' else ''} |")
+        cv = fmt(c_summary[k]) if c_summary else ""
+        fv = fmt(f_summary[k]) if f_summary else ""
+        lines.append(f"| {k} | {fmt(v)} | {cv} | {fv} |")
     lines += ["", "Per-case sample results:", "", "| case | gold | pred | exact | missing steps | extra steps |",
               "|---|---|---|---|---|---|"]
     for c in s_cases:
         lines.append(f"| {c['case_id']} | {c['gold_status']} | {c['pred_status']} | {'yes' if c['exact'] else 'no'} | "
                      f"{len(c['missing'])} | {len(c['extra'])} |")
-    if c_cases:
-        lines += ["", "Custom cases:", "", "| case | expected | predicted | pass |", "|---|---|---|---|"]
-        for c in c_cases:
-            lines.append(f"| {c['case_id']} | {c['gold_status']} | {c['pred_status']} | {'yes' if c['exact'] else 'no'} |")
-    if probe:
-        lines += ["", f"Held-out intent probe ({probe['n']} multilingual texts written after the rules were frozen, "
-                      f"`evaluation/intent_probe.json`): rule classifier {probe['rules_correct']}/{probe['n']}; "
-                      f"classifier used in this run ({probe['active_source']}) {probe['active_correct']}/{probe['n']}; "
-                      f"non-deletion requests wrongly treated as deletion: {probe['false_deletions']}."]
+    for title, cases in (("Custom cases (challenge evidence)", c_cases), ("Synthetic fixture cases", f_cases)):
+        if cases:
+            lines += ["", f"{title}:", "", "| case | expected | predicted | pass |", "|---|---|---|---|"]
+            for c in cases:
+                lines.append(f"| {c['case_id']} | {c['gold_status']} | {c['pred_status']} | "
+                             f"{'yes' if c['exact'] else 'no'} |")
+    if probes:
+        lines += ["", "Intent probes:", "", "| probe | texts | rule layer | classifier used in this run | false deletions |",
+                  "|---|---|---|---|---|"]
+        for p in probes:
+            lines.append(f"| {p['name']} (`evaluation/{p['file']}`) | {p['n']} | {p['rules_correct']}/{p['n']} | "
+                         f"{p['active_source']}: {p['active_correct']}/{p['n']} | {p['false_deletions']} |")
+    if abl:
+        lines += ["", "Ablation of the sample-derived heuristics (rule intent, no model):", "",
+                  "| variant | sample recall | sample precision | sample status | evaluation answers changed |",
+                  "|---|---|---|---|---|"]
+        for label, s, changed, status in abl:
+            lines.append(f"| {label} | {s['step_recall']:.3f} | {s['step_precision']:.3f} | "
+                         f"{s['status_accuracy']:.3f} | {changed} ({status} status) |")
     lines += ["", "<!-- METRICS:END -->"]
     block = "\n".join(lines)
     text = "<!-- METRICS:START --><!-- METRICS:END -->"

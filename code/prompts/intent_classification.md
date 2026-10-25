@@ -1,10 +1,18 @@
 # Request intent classification prompt
 
-Used by `code/intent.py` (model: `claude-haiku-5-5`, effort `low`, max 1024 tokens; sampling parameters are not sent because current models reject them).
-Results are cached in `code/cache/intent_cache.json` keyed by the SHA-256 of the
-request text (the text itself is not stored), so each distinct text is classified once.
-If the model says DELETION while the rule layer finds an explicit "keep / do not delete"
-cue, the request is treated as NOT_DELETION: a destructive action needs both signals to agree.
+Used by `code/intent.py` (model: `claude-haiku-5-5`, effort `low`, max 2048 tokens, JSON-schema
+output `{"intent": "DELETION" | "NOT_DELETION", "reason": str}`; sampling parameters are not sent
+because current models reject them). Results are cached in `code/cache/intent_cache.json` keyed
+by the SHA-256 of the request text (the text itself is not stored), so each distinct text is
+classified once.
+
+Before the call, instruction-like segments ("SYSTEM: ...", "ignore previous instructions",
+"answer DELETION", a forged closing tag, in six languages) are cut out of the request text. If
+any were found, a disagreement between the model and the rule layer resolves to the rule layer
+on the cleaned text. Otherwise the model decides, except that an explicit multilingual "keep my
+account / do not delete" cue overrides a model DELETION: a destructive action needs both
+signals to agree. Refusals, truncated answers and API errors fall back to the rule layer and
+are counted and printed at the end of the run.
 
 ## System
 

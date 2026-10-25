@@ -82,6 +82,10 @@ def load_observations(dataset):
                 warn(f"{fid}: unsupported file type {ext!r}; skipped")
         except Exception as exc:  # isolate one corrupt artifact from the rest of the run
             warn(f"{fid}: could not be parsed ({type(exc).__name__}: {exc}); skipped")
+    from . import media
+
+    WARNINGS.extend(media.ERRORS)
+    media.ERRORS.clear()
     return obs
 
 

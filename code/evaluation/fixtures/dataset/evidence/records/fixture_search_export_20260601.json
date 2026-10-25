@@ -1,0 +1,5 @@
+{"exported_at": "2026-06-01T09:00:00Z",
+ "service_exports": {"search_service": {"queries": [
+  {"resource_id": "search_9003", "observed_at": "2026-06-01T08:30:00Z", "query": "a.subject@example.test",
+   "hits": {"total": 1, "documents": [{"resource_id": "search_9003", "email": "a.subject@example.test", "display_name": "Ada Example"}]}}
+ ]}}}

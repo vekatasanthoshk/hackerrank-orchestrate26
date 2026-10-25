@@ -1,0 +1,2 @@
+{"snapshots": [{"captured_at": "2026-07-10T08:00:00Z", "data_store": "account_service", "collection": "customer_profiles",
+  "records": [{"resource_id": "account_9211", "email": "c.subject@example.test", "full_name": "Cara Example", "account_status": "ACTIVE"}]}]}

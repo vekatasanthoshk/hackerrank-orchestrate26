@@ -4,7 +4,8 @@ For every image or PDF the extractor first looks for ``code/cache/media/<file_id
 On a cache miss it calls Claude (vision) with the prompt in
 ``code/prompts/media_extraction.md`` and stores the JSON response, so the model
 reads each artifact once and later runs are deterministic and free. PDFs are sent
-as rendered page images plus their text layer (PyMuPDF) for higher fidelity.
+as native document blocks (page images + text layer); images above the API size
+limits are downscaled with PyMuPDF first.
 
 Records whose ``resource_id`` is not printed on the artifact keep their visible
 ``aliases`` (statement numbers, file names, user references); the identity layer
@@ -27,6 +28,7 @@ MANUAL_DIR = os.path.join(HERE, "cache", "media_manual")
 # a cached extraction exists (the previous cache file is kept in cache/media_manual/ once,
 # so evaluation/compare_media.py can diff the two extractions)
 REFRESH = False
+ERRORS = []  # failed or skipped extractions; ingest.load_observations turns them into run warnings
 
 
 def _prompt_parts():
@@ -37,34 +39,56 @@ def _prompt_parts():
     return system, user
 
 
-def _call_vision(path, file_id, origin, captured_at):
+MAX_IMAGE_BYTES = 3_700_000   # 5 MB API limit per image, measured on the base64 text (x4/3)
+MAX_IMAGE_EDGE = 8000          # API limit; the model itself reads up to 2576 px on the long edge
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+
+
+def _image_bytes(path):
+    """Image bytes within the API limits (PyMuPDF halves an oversized image until it fits)."""
+    with open(path, "rb") as fh:
+        data = fh.read()
+    import struct
+
+    w, h = struct.unpack(">II", data[16:24]) if data[:8] == b"\x89PNG\r\n\x1a\n" else (0, 0)
+    if len(data) <= MAX_IMAGE_BYTES and max(w, h) <= MAX_IMAGE_EDGE:
+        return data, IMAGE_TYPES.get(os.path.splitext(path)[1].lower(), "image/png")
+    import pymupdf
+
+    pix = pymupdf.Pixmap(path)
+    while len(pix.tobytes("png")) > MAX_IMAGE_BYTES or max(pix.width, pix.height) > MAX_IMAGE_EDGE:
+        pix.shrink(1)
+    return pix.tobytes("png"), "image/png"
+
+
+def _call_vision(path, file_id, origin, captured_at, client=None):
     import anthropic  # imported lazily so cached runs need no SDK / key
 
-    client = anthropic.Anthropic()
+    client = client or anthropic.Anthropic()
     system, user = _prompt_parts()
     user = user.replace("{file_path}", os.path.basename(path)).replace("{origin}", origin).replace(
         "{captured_at}", captured_at)
-    content = []
     if path.lower().endswith(".pdf"):
-        import pymupdf
-
-        with pymupdf.open(path) as doc:
-            for page in doc:
-                png = page.get_pixmap(dpi=110).tobytes("png")
-                content.append({"type": "image", "source": {"type": "base64", "media_type": "image/png",
-                                                            "data": base64.b64encode(png).decode()}})
-            content.append({"type": "text", "text": "Text layer:\n" + "\n".join(p.get_text() for p in doc)})
-    else:
+        # PDFs go in natively: the model sees every page image and the text layer
         with open(path, "rb") as fh:
-            data = base64.b64encode(fh.read()).decode()
-        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}})
-    content.append({"type": "text", "text": user})
-    resp = client.messages.create(model=MODEL, max_tokens=16000, system=system,
-                                  output_config={"effort": "medium"},
-                                  messages=[{"role": "user", "content": content}])
-    ledger.record("media_extraction", MODEL, resp.usage, file_id)
+            block = {"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
+                                                    "data": base64.standard_b64encode(fh.read()).decode()}}
+    else:
+        data, media_type = _image_bytes(path)
+        block = {"type": "image", "source": {"type": "base64", "media_type": media_type,
+                                             "data": base64.standard_b64encode(data).decode()}}
+    # fallbacks="default": a request the safety classifiers decline is re-run server-side on the
+    # recommended fallback model instead of failing (the served model is what the ledger records)
+    resp = client.beta.messages.create(model=MODEL, max_tokens=16000, system=system,
+                                       output_config={"effort": "medium"},
+                                       betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+                                       messages=[{"role": "user", "content": [block, {"type": "text", "text": user}]}])
+    ledger.record("media_extraction", getattr(resp, "model", None) or MODEL, resp.usage, file_id)
     if resp.stop_reason == "refusal":
-        raise ValueError("model refused")
+        details = getattr(resp, "stop_details", None)
+        raise ValueError(f"model refused ({getattr(details, 'category', None) or 'no category'})")
+    if resp.stop_reason == "max_tokens":
+        raise ValueError("answer truncated at max_tokens")
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
@@ -124,10 +148,16 @@ def extract(path, file_id, origin, captured_at):
         with open(cache, encoding="utf-8") as fh:
             return json.load(fh)
     if not os.environ.get("ANTHROPIC_API_KEY"):
+        ERRORS.append(f"{file_id}: no cached extraction and no ANTHROPIC_API_KEY; artifact skipped")
         return {"records": [], "error": "no cache and no ANTHROPIC_API_KEY"}
     try:
         data = _call_vision(path, file_id, origin, captured_at)
-    except Exception as exc:  # never cache a failed extraction; the run continues without this file
+    except Exception as exc:  # never cache a failed extraction
+        ERRORS.append(f"{file_id}: vision extraction failed ({type(exc).__name__}: {exc})")
+        manual = os.path.join(MANUAL_DIR, f"{file_id}.json")
+        if os.path.exists(manual):  # keep the run complete with the earlier transcription (warned)
+            with open(manual, encoding="utf-8") as fh:
+                return json.load(fh)
         return {"records": [], "error": f"{type(exc).__name__}: {exc}"}
     data = {"file_id": file_id, "records": validate_records(data), "extracted_by": MODEL}
     with open(cache, "w", encoding="utf-8") as fh:

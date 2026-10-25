@@ -1,0 +1,2 @@
+2026-08-01T09:00:00Z level=DEBUG service=account_service trace_id=fx-4 event=profile_lookup_started resource_id=account_9311 lookup_key=d.subject@example.test
+2026-08-01T09:00:00Z level=INFO service=account_service trace_id=fx-4 event=profile_lookup_completed resource_id=account_9311 rows=0 http_status=404

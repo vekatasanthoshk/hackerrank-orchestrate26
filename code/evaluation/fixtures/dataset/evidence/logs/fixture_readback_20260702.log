@@ -1,0 +1,4 @@
+2026-07-02T09:00:00Z level=DEBUG service=account_service trace_id=fx-2 event=profile_lookup_started resource_id=account_9111 lookup_key=b.subject@example.test
+2026-07-02T09:00:00Z level=INFO service=account_service trace_id=fx-2 event=profile_lookup_completed resource_id=account_9111 rows=0 http_status=404
+2026-07-02T09:05:00Z level=DEBUG service=security_service trace_id=fx-3 event=audit_record_read_started resource_id=audit_record_9111 lookup_key=user_911
+2026-07-02T09:05:00Z level=INFO service=security_service trace_id=fx-3 event=audit_record_read_completed resource_id=audit_record_9111 rows=1 subject_reference=user_911

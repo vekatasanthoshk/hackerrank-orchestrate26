@@ -6,11 +6,11 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 ## Final full-dataset run
 
-- run id: `20261025T053841Z` (finished 2026-10-25T05:38:42Z)
+- run id: `20261025T064156Z` (finished 2026-10-25T06:41:58Z)
 - input: `dataset/deletion_requests.csv` -> `output.csv`; 518 requests
-- statuses: COMPLETE 160, INCOMPLETE 348, NOT_APPLICABLE 10
+- statuses: COMPLETE 158, INCOMPLETE 350, NOT_APPLICABLE 10
 - LLM intent classification enabled: **False** over 375 distinct request texts (llm calls 0, cache hits 0, rule-only 375, LLM-vs-rule disagreements 0)
-- media evidence: 15 PNG/PDF artifacts served from `code/cache/media/` (35 extracted records); 0 vision calls in this run
+- media evidence: 15 PNG/PDF artifacts served from `code/cache/media/` (41 extracted records); 0 vision calls in this run
 
 ## Provider / model totals (this run)
 

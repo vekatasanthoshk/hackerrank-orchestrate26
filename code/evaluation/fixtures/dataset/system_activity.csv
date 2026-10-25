@@ -1,0 +1,4 @@
+activity_id,event_time,event_type,source_system,target_system,resource_id,reported_result,details
+activity_901,2026-05-09T17:00:00Z,DELETE_RECORD,deletion_worker,account_service,account_9001,SUCCESS,Deletion worker removed account_9001.
+activity_902,2026-07-31T17:00:00Z,DELETE_RECORD,deletion_worker,account_service,account_9311,SUCCESS,Deletion worker removed account_9311.
+activity_903,2026-08-02T03:00:00Z,RESTORE_BACKUP,backup_service,account_service,account_9311,SUCCESS,Restore job repopulated downstream resource account_9311.

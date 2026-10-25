@@ -233,7 +233,8 @@ class EndToEnd(unittest.TestCase):
     def test_custom_cases(self):
         folder = os.path.join(CODE, "evaluation", "custom_cases")
         for name in sorted(os.listdir(folder)):
-            case = json.load(open(os.path.join(folder, name), encoding="utf-8"))
+            with open(os.path.join(folder, name), encoding="utf-8") as fh:
+                case = json.load(fh)
             st, steps, _ = self.auditor.audit(case["request"])
             self.assertEqual(st, case["expected"]["deletion_status"], name)
             self.assertEqual(steps, case["expected"]["steps"], name)

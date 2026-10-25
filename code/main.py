@@ -260,6 +260,12 @@ def run(requests_path, out_path, use_llm=None, dataset=None):
         warnings += [f"{cid}: {p}" for p in dbg.get("problems", [])]
         rows.append((cid, status, serialize(steps)))
     rows.sort(key=lambda r: case_sort_key(r[0]))
+    if auditor.intent.stats["llm_errors"]:
+        # a broken model path must not pass as a successful LLM run
+        warnings.append(f"intent model calls failed and fell back to the rules: {auditor.intent.stats['llm_errors']}")
+    if auditor.intent.stats["injection_flags"]:
+        warnings.append(f"{auditor.intent.stats['injection_flags']} request text(s) contained instruction-like "
+                        f"segments; they were removed before classification")
     tmp = out_path + ".tmp"
     with open(tmp, "w", encoding="utf-8", newline="") as fh:
         w = csv.writer(fh)

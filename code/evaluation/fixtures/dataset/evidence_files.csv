@@ -1,0 +1,12 @@
+file_id,file_path,origin,captured_at
+evidence_901,evidence/databases/fixture_inventory_20260510.sql,customer_data_inventory,2026-05-10T10:00:00Z
+evidence_902,evidence/records/fixture_handover_20260511.txt,shift_handover,2026-05-11T12:00:00Z
+evidence_903,evidence/logs/fixture_service_20260511.log,service_logs,2026-05-11T12:00:00Z
+evidence_904,evidence/records/fixture_search_export_20260601.json,service_resource_export,2026-06-01T09:00:00Z
+evidence_911,evidence/logs/fixture_readback_20260702.log,service_readback_logs,2026-07-02T12:00:00Z
+evidence_912,evidence/records/fixture_search_export_20260702.json,service_resource_export,2026-07-02T12:00:00Z
+evidence_913,evidence/databases/fixture_backups_20260703.sql,customer_data_inventory,2026-07-03T08:00:00Z
+evidence_921,evidence/records/fixture_bundle_20260710.json,records_assurance_snapshot_bundle,2026-07-10T08:00:00Z
+evidence_931,evidence/logs/fixture_readback_20260801.log,service_readback_logs,2026-08-01T12:00:00Z
+evidence_932,evidence/records/fixture_profile_export_20260803.json,service_resource_export,2026-08-03T12:00:00Z
+evidence_933,evidence/records/fixture_support_bundle_20260802.json,records_assurance_snapshot_bundle,2026-08-02T12:00:00Z
