@@ -11,11 +11,16 @@ Rule layer. The cue lists are written per request category from the task definit
 billing), not from individual request texts, in the six languages the requests use:
 
   1. KEEP cues - the customer explicitly keeps the account or says this is not a
-     deletion ("do not close", "not asking for deletion", "sin borrar ...").
-     They win over everything: a destructive action needs an explicit request.
-  2. DELETE cues - erase / delete / close the account, right to erasure ...
-     A removal that is scoped to marketing lists is an opt-out, not a deletion.
-  3. Category cues (access, export, correction, opt-out, login, billing) decide a
+     deletion ("do not close", "keep it open", "I don't want you to delete it",
+     "no quiero que eliminen ..."). They win over everything: a destructive action needs
+     an explicit request.
+  2. RETRACTION cues - the request reverses a deletion ("I've changed my mind", "cancel
+     my deletion request", "reopen my account"). NOT_DELETION unless a deletion is asked
+     for after the last reversal ("changed my mind about keeping it, please delete it").
+  3. DELETE cues - erase / delete / close the account, right to erasure ...
+     A removal scoped to marketing lists is an opt-out, and a removal of one contact
+     field (an old phone number, an address) is a correction, not a deletion.
+  4. Category cues (access, export, correction, opt-out, login, billing) decide a
      text that has no deletion cue: it is NOT_DELETION either way, the category
      only explains why.
 
@@ -47,6 +52,18 @@ KEEP_CUES = [
     r"(?<!n't )(?<!not )(?<!no )\b(?:want|wish|plan|intend|like) to (?:continue|keep) using",
     r"\bstill (?:want|need|use) (?:the|my|this) (?:account|profile|service)",
     r"\b(?:i'm|i am) not asking (?:for|you to) (?:a |an |any )?(?:delet|eras|clos|remov)",
+    r"\b(?:keep|leave) (?:it|this|the account|my account|my profile|the profile) (?:open|active|running)\b",
+    # "I don't want you to delete ...", per language
+    r"\b(?:don't|do not|doesn't|never) want (?:you to )?(?:\w+ ){0,3}(?:delet|eras|remov|clos)\w*",
+    r"\bnot want (?:\w+ ){0,3}(?:deleted|erased|removed|closed)\b",
+    r"\bno (?:quiero|deseo) que (?:\w+ ){0,2}(?:eliminen|borren|cierren|elimin[eé]is|borr[eé]is)",
+    r"\bno (?:quiero|deseo) (?:eliminar|borrar|cerrar)\b",
+    r"\bn[aã]o (?:quero|desejo) que (?:\w+ ){0,2}(?:excluam|apaguem|fechem|eliminem)",
+    r"\bn[aã]o (?:quero|desejo) (?:excluir|apagar|encerrar)\b",
+    r"\bje ne (?:veux|souhaite) pas (?:que )?(?:\w+ ){0,2}(?:supprim|effac|ferm)",
+    r"\b(?:m[öo]chte|will|w[üu]nsche) (?:\w+ ){0,2}nicht,? dass (?:\w+ ){0,4}(?:gel[öo]scht|entfernt|geschlossen)",
+    r"\bnon (?:voglio|desidero) che (?:\w+ ){0,2}(?:cancell|elimin|chiud)",
+    r"\bnon (?:voglio|desidero) (?:cancellare|eliminare|chiudere)\b",
     r"\bnot (?:a |an )?(?:request|asking|requesting)\b[^.]{0,30}\b(?:delet|eras|remov|clos)",
     # es
     r"\bno (?:cierren|eliminen|borren|cierre|elimine|borre|desactiven)\b", r"\bmantener (?:mi|la) cuenta",
@@ -79,6 +96,29 @@ DELETE_CUES = [
     r"cancell", r"rimuov", r"chiudere (?:il mio|l')account",                          # it
     "削除", "消去", "退会", "삭제", "탈퇴", "删除", "刪除", "注销", "註銷", "销户", "銷戶",  # ja / ko / zh
 ]
+# A request that reverses a deletion: an earlier one ("I've changed my mind", "cancel my deletion
+# request") or one already carried out ("reopen my account"). Each pattern spans the deletion word
+# it governs ("cancel my *deletion* request"), so that word is not read as a new deletion request.
+RETRACT_CUES = [
+    r"\bchanged? my mind(?: about (?:the )?(?:delet|eras|clos|remov)\w*(?: (?:my|the) (?:account|profile|data))?)?",
+    r"\bchange of heart\b",
+    r"\b(?:cancel|withdraw|retract|revoke|ignore|disregard|drop)\w* (?:my|the|that|this) (?:earlier |previous |last |"
+    r"recent |original )?(?:account )?(?:deletion|erasure|removal|closure|delete|close)? ?request",
+    r"\bno longer (?:want|need) (?:it|my account|the account|my profile|my data|anything) (?:to be )?"
+    r"(?:deleted|removed|erased|closed)",
+    r"\bhold off on (?:delet|eras|remov|clos)\w*", r"\b(?:do not|don't) (?:go ahead|proceed)\b",
+    r"\b(?:reopen|reactivate|restore|recover|undelete) (?:it|my account|the account|my profile)\b",
+    # es / pt
+    r"cambi(?:[ée]|ado) de (?:opini[oó]n|idea)", r"(?:cancel|retir)\w* (?:mi|la) solicitud(?: de (?:eliminaci[oó]n|borrado|baja))?",
+    r"mudei de (?:ideia|opini[aã]o)", r"(?:cancel|retir)\w* (?:o |meu )?pedido(?: de (?:exclus[aã]o|encerramento))?",
+    # fr / de / it
+    r"chang[ée] d'avis", r"(?:annuler|retirer) ma demande(?: de (?:suppression|fermeture))?",
+    r"anders [üu]berlegt", r"(?:l[öo]sch)?(?:antrag|anfrage) zur[üu]ckziehen", r"widerrufe meinen (?:l[öo]sch)?antrag",
+    r"cambiato idea", r"(?:annullare|ritirare) la (?:mia )?richiesta(?: di (?:cancellazione|eliminazione))?",
+    # ja / ko / zh
+    "気が変わ", r"(?:申請|依頼|リクエスト)を取り?消", r"신청을 취소", r"요청을 취소", "마음이 바뀌",
+    r"(?:撤回|撤销|撤銷|取消).{0,12}(?:请求|申请|請求|申請)", "改变主意", "改變主意",
+]
 # a removal whose object is a marketing / mailing list is an opt-out (rule: NOT_APPLICABLE)
 OPT_OUT_SCOPE = [
     r"\bremov\w* (?:me|my (?:e-?mail|address|number)) from (?:the |your |all )?(?:marketing|mailing|newsletter|promotional|sms)\b",
@@ -86,6 +126,13 @@ OPT_OUT_SCOPE = [
     r"retir\w* (?:uniquement )?des listes", r"\blistes? (?:marketing|de diffusion)\b",
     r"(?:de|das) listas? de (?:marketing|correo|e-?mail)", r"\bnewsletter[- ]?(?:liste|verteiler)\b",
     "配信停止", "수신 거부", "退订", "退訂",
+]
+# a removal whose object is one contact field being replaced is a correction, not a deletion
+FIELD_EDIT_SCOPE = [
+    r"\b(?:remov|delet|eras)\w* (?:my |the )?(?:old |former |previous |outdated )?(?:phone|mobile|telephone)(?: number)?\b"
+    r"(?![^.]*\b(?:account|profile|all|data)\b)",
+    r"\b(?:remov|delet|eras)\w* (?:my |the )?(?:old |former |previous |outdated )?(?:e-?mail address|postal address|"
+    r"shipping address|delivery address|billing address|address)\b(?![^.]*\b(?:account|profile|all|data)\b)",
 ]
 CATEGORY_CUES = {
     "access": [r"\bwhat (?:personal )?(?:information|data) (?:do )?you (?:hold|have|store|keep)", r"\blist of (?:all )?(?:the )?data",
@@ -144,12 +191,28 @@ def rule_intent(text):
     keep = _first(KEEP_CUES, t)
     if keep:
         return "NOT_DELETION", f"keep cue: {keep}"
+    spans = sorted(m.span() for p in RETRACT_CUES for m in re.finditer(p, t))
+    if spans:
+        # the deletion words a reversal governs are masked; a deletion asked for *after* the last
+        # reversal ("changed my mind about keeping it, please delete it") is still a request
+        masked = list(t)
+        for a, b in spans:
+            masked[a:b] = " " * (b - a)
+        masked = "".join(masked)
+        last = max(b for _, b in spans)
+        later = next((p for p in DELETE_CUES for m in re.finditer(p, masked) if m.start() >= last), None)
+        if not later:
+            return "NOT_DELETION", f"retraction cue: {t[spans[-1][0]:spans[-1][1]]}"
+        return "DELETION", f"deletion cue after a retraction: {later}"
     delete = _first(DELETE_CUES, t)
     opt_out = _first(OPT_OUT_SCOPE, t)
-    if delete and not opt_out:
+    field_edit = _first(FIELD_EDIT_SCOPE, t)
+    if delete and not opt_out and not field_edit:
         return "DELETION", f"deletion cue: {delete}"
     if opt_out:
         return "NOT_DELETION", f"opt-out scope: {opt_out}"
+    if field_edit:
+        return "NOT_DELETION", f"correction scope: {field_edit}"
     for category, cues in CATEGORY_CUES.items():
         hit = _first(cues, t)
         if hit:
@@ -273,9 +336,9 @@ class IntentClassifier:
             if injected:
                 # the text tried to steer the classifier: only the layer it cannot steer decides
                 label, src, reason = rule_label, src + "+injection-guard", f"{rule_reason}; injected: {injected[0][:60]}"
-            elif label == "DELETION" and rule_reason.startswith("keep cue"):
-                # destructive action needs both layers: an explicit "keep / do not delete"
-                # cue overrides a model DELETION
+            elif label == "DELETION" and rule_reason.startswith(("keep cue", "retraction cue")):
+                # destructive action needs both layers: an explicit "keep / do not delete" or a
+                # reversal of the request overrides a model DELETION
                 label, src, reason = "NOT_DELETION", src + "+rules-veto", rule_reason
         self.memo[text] = (label == "DELETION", src, reason)
         return self.memo[text]

@@ -127,6 +127,23 @@ class Intent(unittest.TestCase):
                   "My account page is gone, but my old profile still appears. Can you remove that search result too?"]:
             self.assertEqual(rule_intent(t)[0], "DELETION", t)
 
+    def test_reversals_and_negated_requests(self):
+        # a reversal of a deletion is never a deletion; a deletion asked for after it still is
+        for t in ["I asked to delete my account last month, but I've changed my mind. Please keep it open.",
+                  "I've changed my mind about deleting my account.",
+                  "Please cancel my deletion request.",
+                  "He cambiado de opinión: no quiero que eliminen mi cuenta.",
+                  "J'ai changé d'avis, merci d'annuler ma demande de suppression.",
+                  "Ich möchte meinen Löschantrag zurückziehen.",
+                  "我想撤回删除账户的请求。",
+                  "My account was closed by mistake. Can you reopen it?",
+                  "Remove my old phone number and add the new one instead."]:
+            self.assertEqual(rule_intent(t)[0], "NOT_DELETION", t)
+        for t in ["I changed my mind about keeping the account. Please delete it after all.",
+                  "Cancel my newsletter request and delete my account.",
+                  "Remove my phone number and all my other data."]:
+            self.assertEqual(rule_intent(t)[0], "DELETION", t)
+
     def test_non_deletion(self):
         for t in ["Please remove me from marketing lists only. I still want receipts.",
                   "I'd like to download my account information in a portable format.",
