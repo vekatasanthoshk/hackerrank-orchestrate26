@@ -6,7 +6,7 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 ## Final full-dataset run
 
-- run id: `20261025T064156Z` (finished 2026-10-25T06:41:58Z)
+- run id: `20261025T064657Z` (finished 2026-10-25T06:46:59Z)
 - input: `dataset/deletion_requests.csv` -> `output.csv`; 518 requests
 - statuses: COMPLETE 158, INCOMPLETE 350, NOT_APPLICABLE 10
 - LLM intent classification enabled: **False** over 375 distinct request texts (llm calls 0, cache hits 0, rule-only 375, LLM-vs-rule disagreements 0)

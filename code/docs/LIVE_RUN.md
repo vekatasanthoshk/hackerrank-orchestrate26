@@ -24,9 +24,9 @@ submitted.
 pip install -r code/requirements.txt                 # anthropic + pymupdf
 python3 code/main.py --refresh-media                 # vision re-extraction + LLM intent -> output.csv
 python3 code/evaluation/compare_media.py             # model vs earlier transcription -> media_comparison.md
-python3 code/evaluation/main.py --write-report       # sample + custom + held-out intent probe metrics
+python3 code/evaluation/main.py --ablation --write-report  # samples, custom, fixtures, both intent probes
 python3 code/evaluation/usage_report.py              # real calls / tokens / cost of the final run
-python3 -m unittest discover -s code/tests           # 34 tests
+python3 -m unittest discover -s code/tests           # 49 tests (incl. offline real-SDK checks)
 python3 code/package_submission.py                   # validates output.csv, rebuilds submission/
 git add -A && git commit -m "Live model run" && git push
 ```
@@ -40,6 +40,9 @@ calls. The projected total cost is a few US cents; `usage_report.md` shows the m
 
 * Read the console warnings (stderr) and `media_comparison.md`. If the model extracted a fact
   differently from the transcription, decide which is right before submitting.
+* There must be no `intent model calls failed` or `vision extraction failed` warning. Those
+  mean the run fell back to the rules or the earlier transcription for some inputs, so it is
+  not a full model run.
 * `usage_report.md` must show non-zero calls for `claude-haiku-5-5` and `claude-sonnet-5-5`.
 * `python3 code/evaluation/validate_output.py` must report 0 problems.
 

@@ -28,6 +28,11 @@ organizer-only data.
   phone (PII-scan `matched_value`), or `user_NN` (`customer_reference`, `subject_reference`,
   `subject_ref`, `lookup_key=user_NN`). Names are not used: decoys share near-identical names
   and emails (`g.silva76@gmail.com` vs `g.silva76.jr@gmail.com`, `Jonas Berg` vs `Jonas Berglund`).
+* Field inventory (a scan of every field of every record in every format for identifier-shaped
+  values): besides the fields above, the key a read-back or query was made with
+  (`lookup_value` 118 values, `query` 58), the subject a connector selects (`subject_selector`
+  91) and an attachment's uploader (`uploaded_by` 22, stored PII) also link records. The first
+  version ignored these four; linking them changed 56 answers (see evaluation report #23).
 
 ## Evidence formats → (timestamp, system, resource, category, state, identifier)
 
@@ -63,10 +68,14 @@ A `cache_lookup result=miss` inside a trace is not a record miss.
 5. **Ordering.** Phase → operation-table order → `system_id` → `resource_id`.
    Remediation: DISABLE_DATA_FLOW → BLOCK_RESTORE → DELETE → REDACT → ANONYMIZE.
 6. **Category nuances.**
-   * analytics records keyed only by an email hash (`contact_lookup`) are secondary-identifier
-     copies → DELETE (case_12), while identifiable analytics profiles → ANONYMIZE (case_11).
-   * support attachments (attachment scans, PDF files) → DELETE (case_07, case_13); support
-     messages → REDACT; the legacy support replica contact index → DELETE (case_10).
+   * an analytics record whose only identifier is a hashed email is a copy of a derived
+     identifier (rule_02 SECONDARY_IDENTIFIER) → DELETE (case_12), while identifiable analytics
+     profiles → ANONYMIZE (case_11). Exactly one record in the dataset has that shape
+     (`analytics_9914`), so this rule rests on that one sample.
+   * support attachments → DELETE (case_07, case_13); support messages → REDACT; the legacy
+     support replica contact index → DELETE (case_10). Attachment vs message is read from the
+     record: an attachment collection / storage class / record type, an attachment event, or a
+     file name with a file extension.
    * free-text bodies (`message_text`) can still contain an email → exposed.
    * backups: `restore_allowed=true` → REPORT_RESTORE_RISK + BLOCK_RESTORE (rule 14 RETAIN).
    * data flows: `enabled=true` → REPORT_ACTIVE_DATA_FLOW + DISABLE_DATA_FLOW.
@@ -79,20 +88,28 @@ A `cache_lookup result=miss` inside a trace is not a record miss.
 ## Judgement calls (documented so they can be challenged)
 
 * **Backups / data flows with an unstated block status.** `evidence_32` shows `backup_9287` in a
-  recovery console with no restore block, but it never prints a restore permission. The
-  extraction records `restore_allowed: null` (stated facts only). Policy then treats a retained
-  backup or flow as a recreation path **until evidence shows it blocked / disabled**. That
-  follows rule 14 ("restore access can be blocked") and the definition of COMPLETE ("no ...
-  restore path can recreate data").
-* **Catalog link vs. screenshot content (case_63).** Catalog row `activity_4008` links
+  recovery console but never prints a restore permission or a block. The extraction records
+  `restore_allowed: null` (stated facts only). Policy then treats a retained backup or flow as a
+  recreation path **until evidence shows it blocked / disabled**. That follows rule 14 ("restore
+  access can be blocked") and the definition of COMPLETE ("no ... restore path can recreate
+  data"). Every finding that rests on this default prints a warning; on this dataset there is
+  one (case_55). If a later read-back cannot show the flag, the last stated value holds.
+* **Catalog link vs. record content (case_63).** Catalog row `activity_4008` links
   `marketing_001` to kwame-mensah@proton.me / user_09, but the screenshot `evidence_60` shows a
-  different person (Soo-jin Park, sj.park@naver.com, not in `user_identities.csv`). All 11
-  other catalog links agree with their artifacts. The marketing screen is the only static
-  asset without a date in its filename and uses the hand-made `_001` numbering, so it reads
-  as a template image. The link is kept, and every run prints a conflict warning (the only
-  one on this dataset).
+  different person (Soo-jin Park, sj.park@naver.com). The rule: a catalog link is **dropped**
+  when the record prints identifiers of *another known user* (the artifact outweighs the
+  catalog's claim, which is how a decoy would look), and **kept with a warning** when the
+  printed person is in no identity record, so no other owner can be shown. case_63 is the
+  second kind: Soo-jin Park is not in `user_identities.csv`, Kwame Mensah has no other evidence
+  at all, all 11 other catalog links agree with their artifacts, and the marketing screen is
+  the only static asset without a date in its file name (it reads as a template image). Every
+  run prints the warning.
 
 ## Known limits of the public data
+
+* After the field fix, 254 of 508 deletion answers still have no account step. For 252 of the
+  previously 269, the subject's identifiers appear only on non-account records and no account
+  read-back carries them, so a still-existing account in those cases would go unnoticed.
 
 Some sample answers include resources that no participant-visible artifact ties to the subject
 (e.g. `account_3136` for case_25 is only a bare 404 read-back and a `DELETE_RECORD` claim;
