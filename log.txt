@@ -773,3 +773,25 @@ branch=claude/youthful-goldberg-r571ro
 repo_root=/home/user/hackerrank-orchestrate26
 worktree=main
 parent_agent=none
+
+## [2026-10-25T15:58:01Z] Env-settings screenshot: why the key never reached the session
+
+User Prompt (verbatim, secrets redacted):
+[Screenshot of the cloud environment settings] "One KEY=value per line, in .env format. Anyone who uses this environment can see these values, so don't add secrets." / "'ANTHROPIC_API_KEY' won't be used to authenticate requests. Claude Code sessions are authenticated through your Anthropic account."
+
+Agent Response Summary:
+The screenshot confirms the cause: the environment reserves ANTHROPIC_API_KEY for Claude Code's own sign-in and never passes it into the container, so no session could see it. A parallel session had already pushed code/keys.py, which also reads AUDIT_ANTHROPIC_API_KEY; I fast-forwarded to it and verified 50/50 tests and a byte-identical output.csv. Recommended the safest route: delete the key from the environment settings and do the live run locally with an untracked .env (docs/LIVE_RUN.md). The cloud alternative (AUDIT_ANTHROPIC_API_KEY plus a new session) works but is visible to anyone using the environment, so use a spend-limited key and revoke it afterwards. No key value was seen or logged.
+
+Actions:
+* git fetch + fast-forward to origin/main (4a3768b, code/keys.py)
+* read_documentation environment.secrets
+* python3 -m unittest discover -s code/tests (50 OK); python3 code/main.py --no-llm (md5 unchanged)
+* log.txt and submission/log.txt appended; commit + push
+
+Context:
+tool=Claude Code
+model=claude-opus-5-5
+branch=main
+repo_root=/home/user/hackerrank-orchestrate26
+worktree=main
+parent_agent=none
