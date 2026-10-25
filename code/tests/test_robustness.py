@@ -401,6 +401,21 @@ class Packaging(unittest.TestCase):
         self.assertFalse([n for n in names if n.startswith("dataset/") or ".env" in n or n.endswith((".pyc", ".zip"))
                           or "usage_ledger" in n or "__pycache__" in n])
 
+    def test_log_check_catches_a_bad_merge(self):
+        from package_submission import check_log
+
+        self.assertEqual(check_log(os.path.join(ROOT, "log.txt")), [])
+        good = "## [2026-01-02T00:00:00Z] a\n\ntool=Claude Code\nmodel=m\n\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "log.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(good + "<<<<<<< HEAD\n## [2026-01-01T00:00:00Z] b\n\ntool=Claude Code\n" + good)
+            problems = check_log(path)
+        self.assertTrue(any("conflict" in p for p in problems))
+        self.assertTrue(any("out of order" in p for p in problems))
+        self.assertTrue(any("model=" in p for p in problems))
+        self.assertTrue(any("duplicate" in p for p in problems))
+
 
 class RequestEdgeCases(unittest.TestCase):
     @classmethod

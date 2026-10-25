@@ -19,7 +19,7 @@ python3 code/evaluation/validate_output.py         # contract checks on output.c
 python3 code/evaluation/main.py --ablation         # samples, custom cases, synthetic fixtures, intent probes
 python3 code/evaluation/usage_report.py            # regenerates evaluation/usage_report.md
 python3 code/main.py --inspect case_11             # identities, matched evidence, decision trace
-python3 -m unittest discover -s code/tests -v      # 50 unit, robustness, security, offline-SDK and end-to-end tests
+python3 -m unittest discover -s code/tests -v      # 54 unit, robustness, security, offline-SDK and end-to-end tests
 python3 code/package_submission.py                 # validate + rebuild submission/ (code.zip, output.csv, log.txt)
 ```
 
@@ -60,7 +60,11 @@ code/
 Per case:
 
 1. **Intent.** NOT_APPLICABLE with `[]` for access, export, correction, opt-out, login and
-   billing requests. Instruction-like segments in the request text are cut out first.
+   billing requests, for reversals of a deletion request, and for deletions that are only
+   mentioned (a question, a condition) or aimed at something other than the person's account
+   or data. Instruction-like segments in the request text are cut out first. The rule layer
+   scores 34/40 with 5 false deletions on the final held-out probe, so the model is the
+   intended classifier (`evaluation/evaluation_report.md`).
 2. **Identity.** The request email (any case, current or historical) resolves to `user_id` and
    then to every email, phone and email hash the user ever had.
 3. **Ownership.** A resource belongs to the subject only through grounded identifiers on its

@@ -120,14 +120,17 @@ def predict(auditor, requests):
     return out
 
 
-PROBES = (("dev", "intent_probe.json"), ("held-out", "intent_probe_heldout.json"))
+# Intent probes, oldest first. Each was written before the rule change it measured and scored once
+# as held-out (that first score is recorded in evaluation_report.md); every one except the last was
+# then used to fix the rules, so it now counts as a dev set. Only the last one is still held out.
+PROBES = (("dev-1", "intent_probe.json"), ("dev-2", "intent_probe_heldout.json"),
+          ("dev-3", "intent_probe_heldout_v3.json"), ("dev-4", "intent_probe_heldout_v4.json"),
+          ("dev-5", "intent_probe_heldout_v5.json"), ("held-out", "intent_probe_heldout_v6.json"))
 
 
 def score_intent_probes(auditor):
-    """Intent probes. ``intent_probe.json`` (24 texts) is now a dev set: its three misses were seen
-    while the rule layer was rewritten. ``intent_probe_heldout.json`` (60 texts) was written after
-    that rewrite and is scored, never tuned on. Scores the rule layer always, and the configured
-    classifier (the LLM when a key is set)."""
+    """Score the rule layer on every probe, and the configured classifier (the LLM when a key
+    is set). Reports misses and false deletions (non-deletion text treated as deletion)."""
     from intent import rule_intent, sanitize
 
     out = []

@@ -26,9 +26,11 @@ generated block below). Contract checks for the submission file:
   expected steps were written from the problem statement and `deletion_rules.csv` before the
   engine was run on these files. This is the suite that is independent of the engine.
 
-Two intent probes are scored as well. The 24-text `intent_probe.json` is a **dev set**: its three
-misses were seen while the rule layer was rewritten. The 60-text `intent_probe_heldout.json`
-was written after that rewrite and has not been tuned on.
+Six intent probes are scored as well (264 hand-written texts). Each was written before the
+rule change it measured, committed before it was scored, and scored once as held-out; five were
+then used to fix the rules and are now **dev sets**. Only the last, `intent_probe_heldout_v6.json`
+(40 texts, written after the rules were frozen in commit `d30cd18`), is still held out. See
+"Intent probes" below for each probe's first score.
 
 Metrics:
 
@@ -122,8 +124,12 @@ Intent probes:
 
 | probe | texts | rule layer | classifier used in this run | false deletions |
 |---|---|---|---|---|
-| dev (`evaluation/intent_probe.json`) | 24 | 24/24 | rules: 24/24 | 0 |
-| held-out (`evaluation/intent_probe_heldout.json`) | 60 | 56/60 | rules: 56/60 | 1 |
+| dev-1 (`evaluation/intent_probe.json`) | 24 | 24/24 | rules: 24/24 | 0 |
+| dev-2 (`evaluation/intent_probe_heldout.json`) | 60 | 60/60 | rules: 60/60 | 0 |
+| dev-3 (`evaluation/intent_probe_heldout_v3.json`) | 60 | 60/60 | rules: 60/60 | 0 |
+| dev-4 (`evaluation/intent_probe_heldout_v4.json`) | 40 | 40/40 | rules: 40/40 | 0 |
+| dev-5 (`evaluation/intent_probe_heldout_v5.json`) | 40 | 40/40 | rules: 40/40 | 0 |
+| held-out (`evaluation/intent_probe_heldout_v6.json`) | 40 | 34/40 | rules: 34/40 | 5 |
 
 Ablation of the sample-derived heuristics (rule intent, no model):
 
@@ -150,7 +156,7 @@ Ablation of the sample-derived heuristics (rule intent, no model):
   wherever both lists have the step.
 * **The samples flatter us.** All 32 sample cases were available while the rules were written,
   so 1.000 status / precision there is an upper bound. The synthetic fixtures (4/4, written
-  before the run) and the held-out intent probe (56/60 with rules only) are the better guide to
+  before the run) and the final held-out intent probe (v6: 34/40 with rules only) are the better guide to
   behaviour on unseen inputs. Expect evaluation recall at or below the sample figure.
 
 ## Custom evaluation cases
@@ -181,16 +187,36 @@ construction (`cases.json` lists the construction facts per case). The expected 
 written from the problem statement and `deletion_rules.csv` before the engine was run on these
 files, and all four passed on the first run.
 
-**Intent probes.** The 24-text `intent_probe.json` used to be the held-out probe (21/24). Its
-three misses ("shut my account down", "close my profile", Traditional Chinese 刪除) were seen
-while the rule layer was rewritten, so it is now reported as a **dev set** (24/24). The new
-60-text `intent_probe_heldout.json` (30 deletion, 30 not, six languages, plus injection
-attempts in both directions) was written after the rewrite and scored once: **56/60 with the
-rule layer**. Three misses are deletions it does not recognise ("withdraw my consent… data be
-destroyed", "make my account disappear", "take down my profile"). One is a **false deletion**:
-"I asked to delete my account last month, but I've changed my mind. Please keep it open."
-"keep it open" is not among the keep cues. We left it as measured instead of adding a cue for
-it. With a key, the same script scores the Haiku classifier on both probes.
+**Intent probes.** First score of each probe, at the moment it was still held out, and its score
+now (rule layer, no model; a *false deletion* is a non-deletion text treated as a deletion):
+
+| probe | texts | written after | first score (held-out) | now |
+|---|---|---|---|---|
+| `intent_probe.json` | 24 | the first rule set | 21/24, 0 false deletions | 24/24 (dev) |
+| `intent_probe_heldout.json` (v2) | 60 | the category rewrite | 56/60, **1** false deletion | 60/60 (dev) |
+| `intent_probe_heldout_v3.json` | 60 | committed in `614e776`, before the reversal rules | 55/60, **2** | 60/60 (dev) |
+| `intent_probe_heldout_v4.json` | 40 | rules frozen in `d95efad` | 33/40, **7** | 40/40 (dev) |
+| `intent_probe_heldout_v5.json` | 40 | rules frozen in `e556127` | 32/40, **7** | 40/40 (dev) |
+| `intent_probe_heldout_v6.json` | 40 | rules frozen in `d30cd18` | **34/40, 5 false deletions, 1 missed deletion** | held out |
+
+What each round fixed, as categories rather than phrases: reversals of a deletion request
+("I've changed my mind", "cancel my deletion request", "reopen my account") and per-language
+"I don't want you to delete" negations (v2, v3); deletions that are only *mentioned*, in
+informational questions, conditional threats and abandoned intentions (v4); deletion verbs aimed
+at something other than the person's own account or data, or at someone else's account (v5).
+Across all of it the 409 request texts of the dataset, custom cases and fixtures keep the same
+labels.
+
+**What the numbers say.** Every round fixed what it was tuned on, but each fresh set still found
+new unsafe errors: 7, 7 and 5 of the 20 non-deletion texts in v4–v6. The v6 misses are a field
+deletion with "the account itself is fine", a past-tense statement ("I deleted my saved card
+myself"), a Spanish question without an interrogative opener, a German "only the old address,
+the account stays", and "never mind my last message about deleting everything". **The keyword
+rules are reliable on the dataset's phrasing but not safe on open-ended text.** That is why the
+model is meant to be the primary classifier, with the rules only able to veto a model DELETION
+(explicit keep / reversal cues) or decide when injected instructions were found. We stopped
+tuning at v6 rather than fit a seventh set. The submitted run still uses the rules, because no
+key has reached a session.
 
 **Where the intent rules came from.** The previous rule list contained four cues lifted from
 evaluation texts ("misspel", "reset the login", "invoices … records", "out of date"). The
@@ -201,7 +227,7 @@ those texts also carries a generic keep cue ("leave the account active", "withou
 "leave my profile", "do not close"). Across all 405 distinct request texts (evaluation,
 samples, custom) the rewrite changes **0** labels. That the 10 NOT_APPLICABLE predictions
 match the dataset's own `CLASSIFY_REQUEST` rows is a consistency check, not evidence of
-generalisation; the held-out probe is that evidence.
+generalisation; the held-out probes are that evidence.
 
 ## Independent checks on the 518 predictions
 
@@ -223,16 +249,25 @@ on the output (`code/tests/test_pipeline.py` automates the contract and determin
 | duplicate steps in a case | 0 |
 
 **Coverage.** 254 of the 508 deletion answers contain no `account_service` step (269 before
-the identifier-field fix in #23), and 66 COMPLETE answers consist of a single check. A raw-text
-scan shows why: for 252 of the then-269 cases the subject's identifiers appear in the evidence
-only on non-account records, and no account read-back carries any of them. Those accounts are
-not in the participant-visible evidence in a form we can link. If one of them still exists, its
-case would be wrongly COMPLETE, and we cannot detect that. The batch inference (#4) is the only
-mechanism that names such accounts, and it can only schedule a check.
+the identifier-field fix in #23), and 66 COMPLETE answers consist of a single check. Three scans
+explain it:
+* for 252 of the then-269 cases, the subject's identifiers appear in the evidence only on
+  non-account records, and no account read-back carries any of them;
+* the only field in any record that points at another resource is `source_resource_id`
+  (search → account), which is already followed;
+* the 16 account checks missing from the sample answers each appear in exactly one place: a
+  deletion-worker `DELETE_RECORD` claim within about 75 minutes of that request's `reported_at`.
+  That is the link the dataset intends, and the batch inference (#4) uses it where it is
+  unambiguous. 13 of the 16 sit in report batches where 2–6 unlinked claims compete, and the
+  claim order matches no request attribute, so assigning them would be a guess.
+A wider time window (claims up to 15 minutes *after* the report) would add two sample checks
+(`account_002`, `account_008`; recall 0.870 → 0.881) but changes **none** of the 518 evaluation
+answers, so it would only flatter the sample score. It was measured and reverted. If an
+unlinked account still exists, its case is wrongly COMPLETE, and we cannot detect that.
 
 ## Automated tests
 
-`python3 -m unittest discover -s code/tests -v` runs 50 tests in ~15 s. `test_robustness.py`
+`python3 -m unittest discover -s code/tests -v` runs 54 tests in ~15 s. `test_robustness.py`
 attacks each guard listed in `docs/SECURITY.md`:
 * SQL `ATTACH`, `PRAGMA` and hostile table names;
 * path traversal, bad ids, corrupt, missing and badly timestamped manifest rows;
@@ -302,6 +337,11 @@ Iteration log from development. Sample metrics are shown after each change.
 | 31 | (review 2) episode scoping and batch account inference were derived from 3–4 samples; the inference uses a deletion-worker claim as a link | — | both behind flags and measured (`--ablation`): without the inference, sample recall 0.860 and 28 evaluation answers lose a check (no status change); without scoping, sample precision 0.971 and 1 evaluation answer changes. Batch-inferred accounts can no longer produce a finding or a COMPLETE citation from a present read-back | kept, measured |
 | 32 | (review 2) the first six `log.txt` turn entries were written retroactively with identical timestamps | entries batched after the fact | `log.txt` is append-only, so the old entries stay as they are; a correction notice is appended to the log | — |
 | 33 | (review 2) `submission/agent-trace.zip` (contains the account email) is still reachable in the public repo's history | removing it from the tree does not remove it from history | needs a history rewrite and force-push of `main`, or making the repository private: an owner decision, not done unilaterally | **pending the owner's decision** |
+| 34 | (review 3) the v2 held-out probe found a false deletion: "I asked to delete my account last month, but I've changed my mind. Please keep it open." | no notion of a request that reverses a deletion | reversal cues in seven languages that span the deletion word they govern; a deletion asked for after the last reversal still counts | v2 60/60 (now dev); 0 dataset label changes |
+| 35 | (review 3) the first probe had been tuned on, so only one set measured generalisation | — | every later probe committed before its rule change and scored once; four more rounds (v3–v6) | final held-out v6: 34/40, 5 false deletions |
+| 36 | (review 3) v4/v5 showed the rules treat any *mention* of deletion as a request, and any object of a deletion verb as the account | keyword matching without sentence structure | per sentence: informational questions, conditional threats and abandoned intentions are not requests; a deletion verb must aim at the person's own account or data | v4 / v5 40/40 (now dev); v6 shows the limit |
+| 37 | (review 3) recall ceiling on account checks | the evidence holds no further links | scans for cross-references and claim timing; a late-claim window raised sample recall only, changed no evaluation answer, and was reverted | unchanged |
+| 38 | (review 3) two sessions edited the repo at once; their `log.txt` appends had to be merged by hand | parallel sessions on one branch | merges keep both appends in time order; `package_submission.py` now refuses to package a log with conflict markers, out-of-order or duplicate entries, or entries without exactly one `tool=` and `model=` line | log checked: 33 entries, 0 problems |
 
 Decoys and grounding: activity rows are never treated as proof of state (721 FAILED / 376
 PARTIAL claims exist), and identity is never inferred from names. Two kinds of activity rows

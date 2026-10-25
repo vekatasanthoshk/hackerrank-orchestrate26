@@ -32,7 +32,7 @@ python3 code/main.py --refresh-media                 # vision re-extraction + LL
 python3 code/evaluation/compare_media.py             # model vs earlier transcription -> media_comparison.md
 python3 code/evaluation/main.py --ablation --write-report  # samples, custom, fixtures, both intent probes
 python3 code/evaluation/usage_report.py              # real calls / tokens / cost of the final run
-python3 -m unittest discover -s code/tests           # 50 tests (incl. offline real-SDK checks)
+python3 -m unittest discover -s code/tests           # 54 tests (incl. offline real-SDK checks)
 python3 code/package_submission.py                   # validates output.csv, rebuilds submission/
 git add -A && git commit -m "Live model run" && git push
 ```
