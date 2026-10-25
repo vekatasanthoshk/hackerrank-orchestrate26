@@ -7,8 +7,9 @@ generated block below). Contract checks for the submission file:
 
 > **Model status.** Every number in this report comes from a run **without** model calls:
 > intent from the rule layer, the 15 PNG/PDF artifacts from transcriptions made during
-> development (re-checked against the images on 2026-10-25). No `ANTHROPIC_API_KEY` has been
-> available in any session so far. The live run in `docs/LIVE_RUN.md` is still pending, and
+> development (re-checked against the images on 2026-10-25). No API key has reached any session
+> so far: the cloud environment does not pass a variable named `ANTHROPIC_API_KEY` into sessions,
+> so the code now also reads `AUDIT_ANTHROPIC_API_KEY`. The live run in `docs/LIVE_RUN.md` is still pending, and
 > `usage_report.md` reports 0 calls.
 
 ## How the system is scored
@@ -231,7 +232,7 @@ mechanism that names such accounts, and it can only schedule a check.
 
 ## Automated tests
 
-`python3 -m unittest discover -s code/tests -v` runs 49 tests in ~12 s. `test_robustness.py`
+`python3 -m unittest discover -s code/tests -v` runs 50 tests in ~15 s. `test_robustness.py`
 attacks each guard listed in `docs/SECURITY.md`:
 * SQL `ATTACH`, `PRAGMA` and hostile table names;
 * path traversal, bad ids, corrupt, missing and badly timestamped manifest rows;

@@ -17,6 +17,7 @@ import os
 import re
 
 from .common import RESOURCE_RE, SAFE_ID_RE, SYSTEM_CATEGORY, interpret, make_obs, system_for
+import keys
 import ledger
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,9 +63,7 @@ def _image_bytes(path):
 
 
 def _call_vision(path, file_id, origin, captured_at, client=None):
-    import anthropic  # imported lazily so cached runs need no SDK / key
-
-    client = client or anthropic.Anthropic()
+    client = client or keys.client()  # SDK imported lazily so cached runs need no SDK / key
     system, user = _prompt_parts()
     user = user.replace("{file_path}", os.path.basename(path)).replace("{origin}", origin).replace(
         "{captured_at}", captured_at)
@@ -137,7 +136,7 @@ def extract(path, file_id, origin, captured_at):
         return {"records": [], "error": "unsafe file_id"}
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache = os.path.join(CACHE_DIR, f"{file_id}.json")
-    if REFRESH and os.environ.get("ANTHROPIC_API_KEY") and os.path.exists(cache):
+    if REFRESH and keys.api_key() and os.path.exists(cache):
         os.makedirs(MANUAL_DIR, exist_ok=True)
         keep = os.path.join(MANUAL_DIR, f"{file_id}.json")
         if not os.path.exists(keep):
@@ -147,9 +146,9 @@ def extract(path, file_id, origin, captured_at):
     if os.path.exists(cache):
         with open(cache, encoding="utf-8") as fh:
             return json.load(fh)
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        ERRORS.append(f"{file_id}: no cached extraction and no ANTHROPIC_API_KEY; artifact skipped")
-        return {"records": [], "error": "no cache and no ANTHROPIC_API_KEY"}
+    if not keys.api_key():
+        ERRORS.append(f"{file_id}: no cached extraction and no API key; artifact skipped")
+        return {"records": [], "error": "no cache and no API key"}
     try:
         data = _call_vision(path, file_id, origin, captured_at)
     except Exception as exc:  # never cache a failed extraction

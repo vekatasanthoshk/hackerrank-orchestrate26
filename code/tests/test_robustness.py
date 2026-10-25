@@ -153,7 +153,7 @@ class IntentSafety(unittest.TestCase):
                     types.SimpleNamespace(type="text", text=json.dumps(answer))])
 
         self._orig = getattr(anthropic, "Anthropic", None)
-        anthropic.Anthropic = lambda: types.SimpleNamespace(messages=Msgs())
+        anthropic.Anthropic = lambda **kw: types.SimpleNamespace(messages=Msgs())
         self.addCleanup(lambda: setattr(anthropic, "Anthropic", self._orig))
         return intent.IntentClassifier(use_llm=True), sent
 
@@ -190,6 +190,23 @@ class IntentSafety(unittest.TestCase):
             is_del, src, _ = clf.classify(text)
             self.assertFalse(is_del, text)
             self.assertIn("rules-veto", src, text)
+
+    def test_key_from_the_unreserved_variable(self):
+        # cloud environments do not pass ANTHROPIC_API_KEY into the container
+        from unittest import mock
+
+        import intent
+        import keys
+
+        env = {k: v for k, v in os.environ.items() if k not in keys.KEY_VARS}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertIsNone(keys.api_key())
+            self.assertFalse(intent.IntentClassifier().use_llm)
+            os.environ["AUDIT_ANTHROPIC_API_KEY"] = "  sk-ant-test  "
+            self.assertEqual(keys.api_key(), "sk-ant-test")
+            self.assertTrue(intent.IntentClassifier().use_llm)
+            os.environ["ANTHROPIC_API_KEY"] = "sk-ant-first"
+            self.assertEqual(keys.api_key(), "sk-ant-first")
 
     def test_bad_schema_falls_back(self):
         clf, _ = self._classifier_with_stub({"intent": "MAYBE"})

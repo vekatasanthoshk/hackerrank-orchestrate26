@@ -28,6 +28,7 @@ from planner import order_steps, serialize  # noqa: E402
 from policy import Policy  # noqa: E402
 from state import EvidenceIndex  # noqa: E402
 import accounts  # noqa: E402
+import keys  # noqa: E402
 import intent as intent_module  # noqa: E402
 
 ROOT = os.path.dirname(HERE)
@@ -350,11 +351,11 @@ def main():
     ap.add_argument("--no-llm", action="store_true", help="use only the rule-based intent classifier")
     ap.add_argument("--dataset", default=DATASET, help="dataset folder (default: ./dataset)")
     ap.add_argument("--refresh-media", action="store_true",
-                    help="re-extract every PNG/PDF with the vision model (needs ANTHROPIC_API_KEY)")
+                    help="re-extract every PNG/PDF with the vision model (needs ANTHROPIC_API_KEY or AUDIT_ANTHROPIC_API_KEY)")
     args = ap.parse_args()
     if args.refresh_media:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            sys.exit("--refresh-media needs ANTHROPIC_API_KEY in the environment")
+        if not keys.api_key():
+            sys.exit("--refresh-media needs ANTHROPIC_API_KEY or AUDIT_ANTHROPIC_API_KEY in the environment")
         import ingest.media
 
         ingest.media.REFRESH = True

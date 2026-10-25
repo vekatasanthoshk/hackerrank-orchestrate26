@@ -12,14 +12,14 @@ and emits ordered FINDING / REMEDIATION / VERIFICATION steps.
 # from the repository root (the folder that contains dataset/ and code/)
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r code/requirements.txt
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env        # optional, see "Models" below
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env        # optional, see "Models" below (cloud: AUDIT_ANTHROPIC_API_KEY)
 
 python3 code/main.py                               # -> ./output.csv (518 rows)
 python3 code/evaluation/validate_output.py         # contract checks on output.csv
 python3 code/evaluation/main.py --ablation         # samples, custom cases, synthetic fixtures, intent probes
 python3 code/evaluation/usage_report.py            # regenerates evaluation/usage_report.md
 python3 code/main.py --inspect case_11             # identities, matched evidence, decision trace
-python3 -m unittest discover -s code/tests -v      # 49 unit, robustness, security, offline-SDK and end-to-end tests
+python3 -m unittest discover -s code/tests -v      # 50 unit, robustness, security, offline-SDK and end-to-end tests
 python3 code/package_submission.py                 # validate + rebuild submission/ (code.zip, output.csv, log.txt)
 ```
 
@@ -46,6 +46,7 @@ code/
   planner.py           phase -> operation -> system -> resource ordering, JSON serialisation
   accounts.py          narrow, single-candidate account inference from deletion batches
   ledger.py            per-call token ledger (feeds usage_report.md)
+  keys.py              API key lookup (ANTHROPIC_API_KEY, then AUDIT_ANTHROPIC_API_KEY)
   prompts/*.md         every model prompt
   docs/DATA_NOTES.md   data reconnaissance and rules derived from the samples
   evaluation/          main.py (metrics, --ablation), validate_output.py, usage_report.py, custom_cases/,
@@ -82,7 +83,9 @@ Per case:
 | intent classification | `claude-haiku-5-5` (effort low, JSON-schema answer) | 518 short multilingual texts; one cached call per distinct text |
 | PNG / PDF extraction | `claude-sonnet-5-5` vision (effort medium, server-side refusal fallback) | 15 files (PDFs as native documents), extracted once, cached in `cache/media/` |
 
-Everything else is deterministic code. Without `ANTHROPIC_API_KEY` the run uses the cached
+Everything else is deterministic code. The key is read from `ANTHROPIC_API_KEY` or
+`AUDIT_ANTHROPIC_API_KEY` (`keys.py`; Claude Code cloud environments do not pass the first name
+into sessions). Without a key the run uses the cached
 media extractions and the rule-based classifier, and `evaluation/usage_report.md` says so.
 **So far every submitted number comes from such a run**: no key has been available, so the
 model stages have only been exercised offline (real SDK, fake API). The cache was transcribed

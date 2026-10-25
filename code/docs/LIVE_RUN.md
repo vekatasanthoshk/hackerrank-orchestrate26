@@ -8,12 +8,18 @@ API `usage` block lands in the ledger behind `usage_report.md`.
 ## 1. Store the key safely (never in the repo, chat, or log)
 
 * **Claude Code cloud session:** open the cloud environment menu in the session's title bar,
-  choose **Edit**, and add the key under **Network secrets** (or as an environment variable)
-  named **`ANTHROPIC_API_KEY`**. A *new* session picks it up. Start one with
-  `vekatasanthoshk/hackerrank-orchestrate26` selected.
+  choose **Edit**, and add one line under **Environment variables**:
+  `AUDIT_ANTHROPIC_API_KEY=sk-ant-...`. Do **not** use the name `ANTHROPIC_API_KEY` there: the
+  environment reserves it for Claude Code's own sign-in and never passes it into the session
+  (the settings page says so). Network secrets do not work either: their values never enter
+  the container, and `api.anthropic.com` bypasses the proxy that injects them. Only a *new*
+  session picks up the variable. Start one with `vekatasanthoshk/hackerrank-orchestrate26`
+  selected. Environment variables are visible to anyone who can use the environment, so
+  prefer a key with a spend limit and revoke it after the run.
 * **Your own machine:** create `.env` in the repository root with the line
-  `ANTHROPIC_API_KEY=sk-ant-...`. `.env` and `.env.*` are git-ignored, and `main.py` loads
-  the file automatically.
+  `ANTHROPIC_API_KEY=sk-ant-...` (or `AUDIT_ANTHROPIC_API_KEY=...`). `.env` and `.env.*` are
+  git-ignored, and `main.py` loads the file automatically. `code/keys.py` reads the first
+  non-empty of the two names.
 
 Do not paste the key into a chat or commit message: `log.txt` records prompts verbatim and is
 submitted.
@@ -26,7 +32,7 @@ python3 code/main.py --refresh-media                 # vision re-extraction + LL
 python3 code/evaluation/compare_media.py             # model vs earlier transcription -> media_comparison.md
 python3 code/evaluation/main.py --ablation --write-report  # samples, custom, fixtures, both intent probes
 python3 code/evaluation/usage_report.py              # real calls / tokens / cost of the final run
-python3 -m unittest discover -s code/tests           # 49 tests (incl. offline real-SDK checks)
+python3 -m unittest discover -s code/tests           # 50 tests (incl. offline real-SDK checks)
 python3 code/package_submission.py                   # validates output.csv, rebuilds submission/
 git add -A && git commit -m "Live model run" && git push
 ```

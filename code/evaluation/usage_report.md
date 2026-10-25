@@ -6,7 +6,7 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 ## Final full-dataset run
 
-- run id: `20261025T064657Z` (finished 2026-10-25T06:46:59Z)
+- run id: `20261025T155331Z` (finished 2026-10-25T15:53:33Z)
 - input: `dataset/deletion_requests.csv` -> `output.csv`; 518 requests
 - statuses: COMPLETE 158, INCOMPLETE 350, NOT_APPLICABLE 10
 - LLM intent classification enabled: **False** over 375 distinct request texts (llm calls 0, cache hits 0, rule-only 375, LLM-vs-rule disagreements 0)
@@ -33,7 +33,7 @@ there by `code/ledger.py`). Numbers below are measured, not estimated, unless ma
 
 ### Why this run made zero model calls
 
-No `ANTHROPIC_API_KEY` was available in the build environment, so the run used the cached
+No API key (`ANTHROPIC_API_KEY` / `AUDIT_ANTHROPIC_API_KEY`) was available in the build environment, so the run used the cached
 media extractions and the deterministic multilingual rule classifier for intent (the
 documented fallback in `code/intent.py`). With a key set (see `code/docs/LIVE_RUN.md` for
 where to store it safely), `python3 code/main.py --refresh-media` classifies each distinct

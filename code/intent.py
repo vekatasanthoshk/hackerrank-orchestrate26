@@ -1,6 +1,7 @@
 """Deletion-vs-not intent classifier: Claude Haiku + disk cache + multilingual rule layer.
 
-* With ``ANTHROPIC_API_KEY`` set, each distinct request text is classified once by
+* With an API key set (``ANTHROPIC_API_KEY`` or ``AUDIT_ANTHROPIC_API_KEY``, see keys.py),
+  each distinct request text is classified once by
   ``claude-haiku-5-5`` (prompt: prompts/intent_classification.md, effort low, JSON-schema
   output) and cached in cache/intent_cache.json; usage is written to the run ledger.
 * Without a key (or on an API error) the deterministic rule classifier below is used.
@@ -29,6 +30,7 @@ import json
 import os
 import re
 
+import keys
 import ledger
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -201,9 +203,7 @@ ANSWER_SCHEMA = {
 
 
 def _llm_intent(text, client=None):
-    import anthropic
-
-    client = client or anthropic.Anthropic()
+    client = client or keys.client()
     system, user = _prompt()
     # the closing delimiter cannot be smuggled in to break out of the data block
     safe = text.replace("</request_text>", "</request_text_>")[:4000]
@@ -229,7 +229,7 @@ def _llm_intent(text, client=None):
 class IntentClassifier:
     def __init__(self, use_llm=None):
         self.cache = _load_cache()
-        self.use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) if use_llm is None else use_llm
+        self.use_llm = bool(keys.api_key()) if use_llm is None else use_llm
         self.stats = {"llm_calls": 0, "cache_hits": 0, "rule_only": 0, "llm_errors": {}, "injection_flags": 0,
                       "disagreements": []}
         self.memo = {}  # text -> result within this run (stats count each distinct text once)

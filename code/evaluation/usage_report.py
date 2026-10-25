@@ -91,7 +91,7 @@ def main():
           ""]
     if tot_calls == 0:
         L += ["### Why this run made zero model calls", "",
-              "No `ANTHROPIC_API_KEY` was available in the build environment, so the run used the cached",
+              "No API key (`ANTHROPIC_API_KEY` / `AUDIT_ANTHROPIC_API_KEY`) was available in the build environment, so the run used the cached",
               "media extractions and the deterministic multilingual rule classifier for intent (the",
               "documented fallback in `code/intent.py`). With a key set (see `code/docs/LIVE_RUN.md` for",
               "where to store it safely), `python3 code/main.py --refresh-media` classifies each distinct",
