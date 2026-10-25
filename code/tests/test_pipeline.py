@@ -144,6 +144,17 @@ class Intent(unittest.TestCase):
                   "Remove my phone number and all my other data."]:
             self.assertEqual(rule_intent(t)[0], "DELETION", t)
 
+    def test_deletion_mentioned_but_not_requested(self):
+        for t in ["Do you delete inactive accounts automatically?",
+                  "What happens to my order history if I delete my account?",
+                  "If my refund isn't processed I will close my account.",
+                  "I was going to ask you to delete my account, but please just reset my password instead.",
+                  "アカウントを削除するとどうなりますか？"]:
+            self.assertEqual(rule_intent(t)[0], "NOT_DELETION", t)
+        for t in ["Can you delete my account?", "Could you confirm my account is deleted and nothing remains?",
+                  "Would you please erase my data?", "Do you understand? Delete my account."]:
+            self.assertEqual(rule_intent(t)[0], "DELETION", t)
+
     def test_non_deletion(self):
         for t in ["Please remove me from marketing lists only. I still want receipts.",
                   "I'd like to download my account information in a portable format.",

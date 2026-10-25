@@ -66,10 +66,12 @@ KEEP_CUES = [
     r"\bnon (?:voglio|desidero) (?:cancellare|eliminare|chiudere)\b",
     r"\bnot (?:a |an )?(?:request|asking|requesting)\b[^.]{0,30}\b(?:delet|eras|remov|clos)",
     # es
-    r"\bno (?:cierren|eliminen|borren|cierre|elimine|borre|desactiven)\b", r"\bmantener (?:mi|la) cuenta",
+    r"\bno (?:me |nos |la |lo |le |les )?(?:cierren|eliminen|borren|cierre|elimine|borre|desactiven)\b",
+    r"\bmantener (?:mi|la) cuenta",
     r"\bsin (?:eliminar|borrar|cerrar)\b",
     # pt
-    r"\bn[aã]o (?:excluam|apaguem|fechem|exclua|apague|feche|desativem)\b", r"\bmanter (?:minha|a) conta",
+    r"\bn[aã]o (?:me |a |o )?(?:excluam|apaguem|fechem|exclua|apague|feche|desativem)\b",
+    r"\bmanter (?:minha|a) conta",
     r"\bsem (?:excluir|apagar|fechar)\b",
     # fr
     r"\bne (?:pas )?(?:supprimer|fermer|effacer)\b", r"\bne (?:supprimez|fermez|effacez) pas\b",
@@ -102,8 +104,9 @@ DELETE_CUES = [
 RETRACT_CUES = [
     r"\bchanged? my mind(?: about (?:the )?(?:delet|eras|clos|remov)\w*(?: (?:my|the) (?:account|profile|data))?)?",
     r"\bchange of heart\b",
-    r"\b(?:cancel|withdraw|retract|revoke|ignore|disregard|drop)\w* (?:my|the|that|this) (?:earlier |previous |last |"
-    r"recent |original )?(?:account )?(?:deletion|erasure|removal|closure|delete|close)? ?request",
+    r"\b(?:cancel|withdraw|retract|revoke|ignore|disregard|drop|forget)\w* (?:my|the|that|this) (?:earlier |previous |"
+    r"last |recent |original )?(?:account )?(?:deletion|erasure|removal|closure|delete|close)? ?"
+    r"(?:request|e-?mail|message|note)(?: about (?:delet|eras|clos|remov)\w*(?: (?:my|the) (?:account|profile|data))?)?",
     r"\bno longer (?:want|need) (?:it|my account|the account|my profile|my data|anything) (?:to be )?"
     r"(?:deleted|removed|erased|closed)",
     r"\bhold off on (?:delet|eras|remov|clos)\w*", r"\b(?:do not|don't) (?:go ahead|proceed)\b",
@@ -127,6 +130,43 @@ OPT_OUT_SCOPE = [
     r"(?:de|das) listas? de (?:marketing|correo|e-?mail)", r"\bnewsletter[- ]?(?:liste|verteiler)\b",
     "配信停止", "수신 거부", "退订", "退訂",
 ]
+# Is a deletion actually being asked for, or only mentioned? Checked per sentence that carries a
+# deletion cue: an informational question ("Do you delete inactive accounts?"), a conditional
+# threat ("If ..., I will close my account") or an abandoned intention ("I was going to ask you to
+# delete it, but ...") mentions deletion without requesting it. Polite questions ("Can you delete
+# ...?") and anything carrying a request marker are requests; so is every other sentence.
+SENTENCE_RE = re.compile(r"[^.!?;。！？]+[.!?;。！？]?")
+REQUEST_MARKERS = re.compile(
+    r"\b(?:please|kindly|can you|could you|would you|will you|i want|i'd like|i would like|i wish|i ask|"
+    r"i request|i'm requesting|i am requesting|i demand)\b|por favor|por gentileza|s'il vous pla[iî]t|merci de|"
+    r"\bbitte\b|per favore|お願い|ください|주세요|해 주|请|請")
+QUESTION_START = re.compile(
+    r"^\s*(?:what|how|when|why|where|which|who|do|does|did|is|are|was|were|should|whether|"
+    r"qu[ée]|c[oó]mo|cu[aá]ndo|por qu[ée]|o que|como|quando|porque|comment|quand|pourquoi|est-ce|"
+    r"wie|wann|warum|wird|werden|cosa|come|perch[ée])\b")
+CJK_QUESTION = re.compile(r"(?:か|까|吗|嗎|呢)\s*[?？]?\s*$")
+CONDITIONAL = re.compile(r"^\s*(?:if|unless|si|se|wenn|falls)\b.*\b(?:i will|i'll|i am going to|i'm going to|"
+                         r"voy a|vou|je vais|ich werde|lo far[òo]|chiuder[òo]|cerrar[ée]|fecharei|fermerai)\b")
+ABANDONED = re.compile(r"\b(?:was going to|were going to|thought about|considered|was thinking (?:about|of)|"
+                       r"had planned to|almost)\b")
+
+
+def _requests_deletion(t, cue_positions):
+    """False when every sentence with a deletion cue only mentions deletion."""
+    for m in SENTENCE_RE.finditer(t):
+        a, b = m.span()
+        if not any(a <= p < b for p in cue_positions):
+            continue
+        s = m.group(0).strip()
+        first = min(p for p in cue_positions if a <= p < b) - a
+        abandoned = ABANDONED.search(s[:first])
+        question = s.endswith(("?", "？")) and (QUESTION_START.search(s) or CJK_QUESTION.search(s))
+        if abandoned or CONDITIONAL.search(s) or (question and not REQUEST_MARKERS.search(s)):
+            continue
+        return True
+    return False
+
+
 # a removal whose object is one contact field being replaced is a correction, not a deletion
 FIELD_EDIT_SCOPE = [
     r"\b(?:remov|delet|eras)\w* (?:my |the )?(?:old |former |previous |outdated )?(?:phone|mobile|telephone)(?: number)?\b"
@@ -208,6 +248,9 @@ def rule_intent(text):
     opt_out = _first(OPT_OUT_SCOPE, t)
     field_edit = _first(FIELD_EDIT_SCOPE, t)
     if delete and not opt_out and not field_edit:
+        positions = [m.start() for p in DELETE_CUES for m in re.finditer(p, t)]
+        if not _requests_deletion(t, positions):
+            return "NOT_DELETION", "deletion mentioned, not requested (question, condition or abandoned intent)"
         return "DELETION", f"deletion cue: {delete}"
     if opt_out:
         return "NOT_DELETION", f"opt-out scope: {opt_out}"
